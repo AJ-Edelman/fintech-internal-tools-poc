@@ -25,7 +25,7 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 
 ## Task Phases
 
-- [ ] **Research**: what Power Apps does, its core capabilities, and where its value lies for this team
+- [x] **Research**: what Power Apps does, its core capabilities, and where its value lies for this team
 - [ ] **Prototype**: working Devin-built replica of core Power Apps functionality
 - [ ] **Evaluate**: honest Devin vs Power Apps comparison covering:
   - [ ] Build cost
@@ -37,8 +37,8 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 ## Plan Steps (see PLAN.md)
 
 - [x] Framing decisions agreed (3 paths, layered comparison, avoidable cost, existing vs new apps)
-- [ ] Step 1: Constraints, assumption register, pain points
-- [ ] Step 2: Bounded, sourced research (2e capability table, 2f workflow candidate)
+- [x] Step 1: Constraints, assumption register, pain points (ASSUMPTIONS.md)
+- [x] Step 2: Bounded, sourced research (research/RESEARCH.md). Awaiting 2f scope pick
 - [ ] Step 3a: Pre-prototype gate (workflow, observable acceptance criteria, non-goals, build approach)
 - [ ] Step 3b: Prototype + evidence log + verification scripts + README
 - [ ] Step 4: Evaluate (7 lenses, transition vs steady-state, no double counting)
