@@ -1,6 +1,6 @@
 # Deliverables & Constraints Tracker
 
-Running checklist for auditing final output against [`PROMPT.md`](./PROMPT.md) (the read-only brief).
+Running checklist for auditing final output against [`PROMPT.md`](./PROMPT.md) (the read-only brief). Step-by-step plan: [`PLAN.md`](./PLAN.md).
 Mark items `[x]` as they are completed and add a short note/link as evidence.
 
 ## Context
@@ -33,6 +33,17 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
   - [ ] Security implications
   - [ ] Opportunity cost of engineering time
 - [ ] **Recommend**: clear build-vs-buy recommendation with reasoning
+
+## Plan Steps (see PLAN.md)
+
+- [ ] Step 1: Constraints, assumptions, needs, pain points
+- [ ] Step 2: Research (incl. 2f ranked capabilities to replicate)
+- [ ] Step 3a: Pre-prototype gate (success criteria defined)
+- [ ] Step 3b: Prototype + build log
+- [ ] Step 4: Evaluate
+- [ ] Step 4b: Recommend
+- [ ] Step 5: Loom script (timestamped, ≤5:00) + recording
+- [ ] Step 6: Key Decisions one-pager
 
 ## Deliverables
 
