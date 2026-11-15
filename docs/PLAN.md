@@ -91,6 +91,17 @@ Conventions: plain text = agreed. *Italics = Devin's suggestion or challenge, st
 - [ ] Stack chosen (no preference; picked for speed plus a real database). Local run only.
 - [ ] Build approach decided. *Challenge: this session is full of planning context, so it isn't how an engineer at the client would brief Devin. Suggestion: write a short build spec (`docs/BUILD_SPEC.md`) and build from it, ideally in a fresh Devin session, so "what instructions were needed" can be inspected and is representative. `OPEN:` your call.*
 
+**Locked scope: A2** (see `BUILD_SPEC.md`). The spec is the only input to the fresh build session; this mapping stays here so the build isn't steered toward the evaluation.
+
+| VP's stated pain | Evidence the build must produce | Where it's recorded |
+|---|---|---|
+| "Use Devin to build these tools" (throughput) | Elapsed time for tool 1 and tool 2; how many instructions were needed; failures and rework | `BUILD_LOG.md` |
+| "Save the license cost" | Cost inputs only: ACUs, human direct/review time, runtime needs (DB, hosting). Savings are modeled in Step 4, not by the prototype | `BUILD_LOG.md` → Step 4 |
+| "Full customization control" | Things the platform can't do or does poorly: PII read audit, correct queries past 10k (AC11), rules in tested code with CI (AC13) | Tests + CI |
+| Scaling to 10+ tools (inferred) | Tool 2's new lines (`git diff --stat`), changes forced in tool 1 (coupling), reuse of foundation modules | `BUILD_LOG.md` |
+| Compliance overhead (H1) | AC4–AC9, AC12 pass at the API; non-goals listed honestly | Tests + README |
+| Caveat | Both tools are versions of *existing* apps; this tests the build pattern, not migration (path c) | Step 4 |
+
 ## Step 3b: Prototype (~2h; you keep the clock)
 
 - Build the workflow from 3a with Devin.
