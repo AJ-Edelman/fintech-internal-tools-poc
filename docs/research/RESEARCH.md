@@ -92,7 +92,7 @@ Tier 1 items: **T1a** shared data model, **T1b** data-layer rules, **T1c** serve
 | Option | Workflow | Tier 1 covered | Scaling evidence | Risk in 2h |
 |---|---|---|---|---|
 | **A** | Refund maker-checker + feature-flag change requests on the same foundation | b, c, d, e, f (**not a**: the tools share no business data) | Tool #2 built from the template, timed, new lines counted | Medium |
-| **A2** | Refund maker-checker + light KYC review on a shared `customer` table; cross-tool rule (no refund while KYC pending/failed) enforced at the server; tool #2 forces one shared-model change and tool #1's tests must still pass | **a–f** | Tool #2 timed, new lines counted, coupling measured | Medium-high (PII masking likely cut) |
+| **A2** | Refund maker-checker + light KYC review (review a customer, record a decision with a reason; no claim/lock, escalation, or documents) on a shared `customer` table; cross-tool rule (no refund while KYC pending/failed) enforced at the server; **server-side PII masking by role** on 2–3 columns, with unmasked reads written to the audit log; tool #2 forces one shared-model change and tool #1's tests must still pass. Small default seed for the demo; separate `--scale` seed (50k records) for the paging check only | **a–f** (incl. column-level in c) | Tool #2 timed, new lines counted, coupling measured | Medium-high (managed by trimming KYC breadth, not Tier 1) |
 | **B** | KYC review queue only (claim/lock, decision, escalation, PII masking) | a (one tool), b, c, d, e (**not f**) | Reuse argued, not shown | Medium |
 | **C** | Config-driven generic tool engine | a, f on paper | Strong on paper | **High**: drifts toward rebuilding the platform |
 
