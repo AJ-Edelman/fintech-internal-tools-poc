@@ -2,126 +2,150 @@
 
 Working plan we step through and iterate on. Source brief: [`PROMPT.md`](./PROMPT.md). Progress checklist: [`TRACKER.md`](./TRACKER.md).
 
-Conventions: plain text = agreed plan. *Italics = Devin's suggestion or challenge, for you to adopt, reject, or push back on.* `OPEN:` = unresolved question.
+Conventions: plain text = agreed. *Italics = Devin's suggestion or challenge, still open for you to accept or reject.* `OPEN:` = unresolved. `[COLLAB]` = a working session between us before anything is drafted.
 
 ---
 
-## Step 1: Constraints, assumptions, client needs, pain points
+## Framing decisions (agreed)
 
-**Goal:** Take the VP at his word, but separate what he *said* from what he *needs*, and write every assumption down so research can confirm or kill it.
+- **Neutral starting point.** No default to "stay" or to "build." Switching has a cost, and staying on a known system has real benefits; both are weighed.
+- **Two separate questions:** (1) *replacing the 3 existing apps* (migration, parallel operation, retraining, data move) vs. (2) *how to build the 10+ new tools* (greenfield). They have different economics and risks and are never blended into one number.
+- **Three paths, one clear recommendation:**
+  - **a.** Retain or optimize the current platform.
+  - **b.** Build selected new tools with Devin; keep the existing apps on the platform.
+  - **c.** Replace the platform's role for this whole portfolio.
+  - The Loom lands on one path, with its conditions and what would change it.
+- **Compare like with like.** Power Apps is a platform: screens + Dataverse + Power Automate + connectors + Entra identity + governance and admin + hosting. Devin is a development tool, not a runtime. The fair comparison is *Power Apps and its surrounding platform services* vs. *Devin-assisted development + the resulting app stack + infrastructure + integrations + operating ownership*.
+- **$250k is taken at face value** (Power Apps is a proxy). The economics use only the **avoidable portion** under each path, not the full $250k.
+- **Research is bounded:** no market survey. They already chose the platform. We evaluate only the capabilities relevant to this client.
+- **Every research claim is sourced** (URL + access date).
+- **The prototype demonstrates a representative development pattern for an internal tool**, not parity and not a platform rebuild. No static dashboards: a narrow working workflow with real persistence and server-side behavior.
+- **No generalizing** from one build to "Devin builds 13 apps at this rate." We judge from what instructions were needed, how the build went, time to build, and how much needed fixing.
 
-**Fixed constraints (from the brief):**
-- About 60 engineers, Series C fintech (regulated: KYC/AML, money movement, PII).
-- $250k/yr platform spend. 3 live apps (KYC review queue, refunds dashboard, feature-flag admin). 10+ more planned.
-- The stated goals are three separate claims, each tested on its own: (a) Devin can build these, (b) the license cost goes away, (c) the team gets full customization control.
-
-**Questions to stress-test:**
-- Why switch? Why now? What is the actual pain: cost, the platform's limits, speed, or governance?
-- Is "save the license cost" the real goal, or a proxy for "we keep hitting the platform's limits"? The answer changes the recommendation.
-
-**Assumption register (to be confirmed or refuted in Step 2):**
-
-| # | Assumption | Why it matters | How to test |
-|---|---|---|---|
-| A1 | The platform really is Power Apps | *The brief says "such as Microsoft Power Apps." It may be Retool or similar. The analysis should hold for either.* | State it explicitly as an assumption |
-| A2 | The $250k is mostly per-user licensing | *Power Apps is licensed per end user or per app, not per builder. The cost driver is probably ops staff (KYC analysts, support agents), not the 60 engineers. Building in-house removes the license fee, not the cost of serving those users.* | Pricing research; back-solve the implied user count |
-| A3 | Engineers build the apps today, not ops "citizen developers" | *If ops builds them, moving to code takes self-service away from ops and shifts the work onto engineering: a hidden opportunity cost.* | `OPEN:` unknown; state both scenarios |
-| A4 | The $250k covers only the 3 apps | *It may also cover Power Automate, Dataverse capacity, or premium connectors, or come bundled with an M365 agreement, so cancelling may not save the full $250k.* | Pricing research |
-| A5 | The cost grows with the 10+ new tools | *Per-user plans may make new apps nearly free at the margin, which weakens the "save as we scale" argument.* | Pricing model research |
-| A6 | Building in-house = full control | True for the code. *Control also means owning uptime, security patches, SSO, audit logs, and SOC 2 evidence.* | Steps 2 and 4 |
-| A7 | Devin output is production-grade for regulated data | Unproven. It is what the prototype tests. | Step 3b |
-
-*Challenge, bias check: we are Devin, evaluating whether to replace a competitor with Devin, for a Cognition take-home. The pull toward "Build" is structural. Mitigation: steelman Power Apps first, and make the recommendation follow from the evidence rather than precede it.*
-
-*Challenge, false binary: "build vs. buy" hides at least four options worth comparing: (1) keep Power Apps; (2) build everything in-house with Devin; (3) hybrid: keep the platform for simple CRUD apps and build the complex or regulated ones; (4) switch to a cheaper low-code tool (Retool, Appsmith, ToolJet). Devin can play a role in options 2, 3, and arguably 4.*
-
-**Output:** filled-in assumption register + a pain-point hypothesis list.
+*Challenges to the framing:*
+- *On (b): if licensing is per user and the same ops staff use both old and new tools, path (b) may avoid **almost no** license cost; existing users stay licensed. Then (b)'s case rests on control, fit, and avoiding cost growth for new users, not savings. The license model (per user vs. per app) is the single biggest swing factor for (b). We must state which we assume, and show both.*
+- *On (c): the avoidable amount is the full license cost only after the last app is migrated and the platform is decommissioned. Until then the license and the new stack run in parallel (both costs at once). The transition timeline drives (c).*
+- *On "taking it at face value" vs. "avoidable portion": these agree. We accept $250k as the total, but the split (users, capacity, other services) is an assumption we state, not a fact we have.*
 
 ---
 
-## Step 2: Research
+## Step 1: Constraints, assumptions, needs, pain points
 
-**2a. Power Apps:** what it does, its core capabilities, its pricing model and unit economics, why companies pick it (M365/Entra integration, connectors, citizen developers, governance/DLP, compliance certifications), and its limits (delegation limits on data queries, weak version control and testing, vendor lock-in, performance, UX limits).
+- Fixed constraints: ~60 engineers, Series C fintech (regulated: KYC/AML, money movement, PII), $250k/yr, 3 live apps, 10+ planned.
+- The VP's three claims, each tested on its own: (a) Devin can build these, (b) license cost is saved, (c) full customization control.
+- Pain-point hypotheses: why switch, why now (cost vs. platform limits vs. speed vs. governance).
+- **Assumption register**: each entry has the assumption, why it matters, how it's tested, and status (open / confirmed / refuted / unresolvable). Seed entries:
 
-**2b. Devin:** capabilities, pricing (ACU model; *verify current numbers, don't quote from memory*), security posture (what access Devin needs, data handling, SOC 2), and limits (it writes code but doesn't host or operate it; humans still review).
+| # | Assumption | Status |
+|---|---|---|
+| A1 | The platform behaves like Power Apps (proxy) | Accepted |
+| A2 | Licensing is per user (end users, mostly ops staff), not per builder | Open: research |
+| A3 | Who builds today: engineers vs. ops "citizen developers" | Unresolvable: state both cases |
+| A4 | How the $250k splits: licenses vs. Dataverse capacity vs. Power Automate vs. premium connectors | Open: research which apps need which |
+| A5 | How cost grows per new tool on the platform | Open: research |
+| A6 | Building in-house brings operating ownership (uptime, patches, SSO, audit, SOC 2 evidence) | Open: Step 4 |
+| A7 | Devin's output can reach production grade for regulated data, with review | Partially tested by the prototype |
+| A8 | The client already has a cloud, an identity provider, and CI/CD to deploy onto | Unresolvable: state it |
 
-**2c. Market context:** a quick look at the alternatives (Retool, Appsmith, a custom React + framework stack) so we're not running a two-horse race. *Time-box this to keep it short.*
+**Output:** register (lives in `docs/ASSUMPTIONS.md`) + pain-point list.
 
-**2d. Comparison matrix:** Power Apps vs. Devin-built, scored for (a) this team and (b) the Step 1 needs. Columns: build cost, run cost, maintenance, security/compliance, speed to the first tool and to the 10th, customization, lock-in, who can build.
+---
 
-**2e. Feedback into Step 1:** which assumptions or pain points does the research refute? Which value points did the VP miss (e.g. built-in Entra SSO, audit trails, compliance certifications he'd have to rebuild)? Update the register.
+## Step 2: Research (bounded, sourced)
 
-**2f. Deliverable: the core capabilities to replicate.** A ranked list of the Power Apps capabilities that matter most to a fintech team shipping many internal tools. This becomes the prototype scope in Step 3. *Hypothesis to test, not a decision yet: the value is less in any single app and more in the shared foundation that makes the 11th app cheap: auth/RBAC, audit logging, data connectors, forms and tables, approval workflows.*
+**2a. The platform beneath the screens.** For each capability: what it does, *which service provides it* (canvas/model-driven apps, Dataverse, Power Automate, connectors, Entra ID, environments/DLP, Managed Environments, ALM pipelines), and *which license tier it requires* (standard vs. premium connectors, Dataverse capacity, add-ons). Capability areas:
+- Data modeling and persistence (Dataverse; row/field security).
+- Connectors and integration (standard vs. premium; custom connectors to internal APIs).
+- Workflow and approvals (Power Automate).
+- Identity and permissions (Entra ID, security roles, sharing).
+- Governance and admin (environments, DLP policies, audit logging, CoE tooling).
+- Deployment and ALM (solutions, pipelines, source control).
+- Known limits (e.g. delegation limits, testing, performance, customization ceilings).
 
-**Output:** research notes (`docs/research/`), the comparison matrix, the updated register, and the ranked capability list.
+**2b. Pricing and unit economics**, enough to back-solve A2/A4/A5 into plausible ranges. Sources: Microsoft pricing pages and Learn docs.
+
+**2c. Devin** (bounded): what it does vs. doesn't do (writes, tests, and maintains code; doesn't host or operate apps), pricing model, security posture and the access it needs. *Pricing must come from current official sources, not memory.*
+
+**2d. Feedback into Step 1:** update the register. Did anything refute a pain point? Did the VP miss any value point (e.g. built-in identity, audit, compliance certifications he'd have to rebuild)?
+
+**2e. Deliverable: the capabilities that matter for this client**, ranked by relevance to a fintech team shipping many internal tools, each marked *replicable easily / replicable with effort / platform-native and hard to replicate*.
+
+**2f. Deliverable: candidate workflow for the prototype**: one bounded workflow that exercises a meaningful subset of 2e.
+
+**Output:** `docs/research/` notes with sources, the capability table, the workflow choice.
 
 ---
 
 ## Step 3a: Pre-prototype gate
 
-Before the 2-hour clock starts, confirm:
-- [ ] Capability list ranked; scope cut to what fits in 2 hours.
-- [ ] **Success criteria written down before building** (e.g. "a new tool can be added in under X minutes / Y lines"; "every write is in the audit log"; "role-gated actions"). *This prevents judging the prototype after the fact by whatever it happened to do well.*
-- [ ] Stack and hosting chosen (run locally plus a demo-able deployment for the Loom).
-- [ ] Mock data only: no real PII, seeded fake KYC and refund records.
-- [ ] Clock rules agreed (see the open questions).
+- [ ] Workflow selected from 2f. *Candidate, to confirm after research: a **refund approval workflow with maker-checker**. An agent requests a refund; a refund over a threshold needs a second approver with a different role; the requester can't approve their own refund; every state change is written to an append-only audit log; permissions are enforced on the server. It touches data modeling, workflow and state, role-based permissions, audit, and a real denied-action path, all directly relevant to fintech. The KYC review queue is the alternative.*
+- [ ] **Observable acceptance criteria**, written before implementation and checked by running the app or its API, not from screenshots or by reading code. For example:
+  - From a fresh clone, the documented startup works with no undocumented steps.
+  - The main workflow completes end to end.
+  - State persists across a server restart.
+  - At least one denied action fails **at the API** (e.g. self-approval returns 403 even when the request skips the UI).
+  - Every claimed control is enforced on the backend, verified by a direct API call.
+  - Audit entries exist for each state change.
+  - Synthetic data only.
+- [ ] What the prototype will **not** establish, written down up front (e.g. real identity-provider integration, scale, production hosting, SOC 2 evidence, migrating existing data).
+- [ ] Stack chosen (no preference; picked for speed plus a real database). Local run only.
+- [ ] Build approach decided. *Challenge: this session is full of planning context, so it isn't how an engineer at the client would brief Devin. Suggestion: write a short build spec (`docs/BUILD_SPEC.md`) and build from it, ideally in a fresh Devin session, so "what instructions were needed" can be inspected and is representative. `OPEN:` your call.*
 
-## Step 3b: Prototype (2-hour cap)
+## Step 3b: Prototype (~2h; you keep the clock)
 
-- Build the scope from 2f with Devin. *Suggestion: build the shared foundation plus 2 of the 3 existing apps on top of it, then time how long a 3rd "new" tool takes. That number is the strongest data point for the Loom.*
-- **Running build log** (`docs/BUILD_LOG.md`): timestamps, what Devin did vs. what a human had to do, failures, workarounds, and links to Devin sessions and PRs. *This is the raw material for Steps 4 and 6. Capture it live; it can't be reconstructed afterwards.*
-- **Non-negotiable:** a GitHub repo with a working prototype; a README covering what it does and how to run it.
+- Build the workflow from 3a with Devin.
+- **Evidence log** (`docs/BUILD_LOG.md`), internal. Each entry tagged **Devin built** / **you directed** / **you verified**, with links to commits, Devin sessions, and PRs. Also logged: failures, rework, and instructions that had to be clarified.
+- **Verification** against the 3a criteria, run as reproducible commands (test script and/or curl calls) and checked in, so reviewers can re-run them.
+- **README** (non-negotiable): what it does, prerequisites, a clean-start check, how to run, seed data, demo users and roles (synthetic), how to verify, limitations / what it doesn't establish, reviewer access.
 
 ---
 
 ## Step 4: Evaluate
 
-- Score the prototype against the 3a success criteria. Is it worth using?
-- What friction came up while building or deploying it that would block adoption?
-- Answer the brief's four required lenses explicitly: **build cost, maintenance burden, security implications, opportunity cost of engineering time.**
-- *Suggestion: a simple 3-year total cost of ownership comparison (license vs. Devin usage + engineer review time + hosting + on-call), with the inputs stated so the VP can swap in his own numbers. Show a sensitivity range, not a single figure.*
-- What is replicable with Devin, what isn't, and where the risk lies. (Required in the Loom.)
+Each lens gets its own explicit section:
+1. **Build cost**: initial implementation and review.
+2. **Migration cost** (only for paths b/c on the existing apps): migration and parallel operation.
+3. **Production hardening**: identity, integrations, security review, deployment.
+4. **Run cost**: hosting, tooling, Devin usage.
+5. **Maintenance burden**: ongoing ownership, dependency updates, incidents, change requests.
+6. **Security implications**: what moves from Microsoft's shared-responsibility model to the client; Devin's own access footprint.
+7. **Opportunity cost**: engineering capacity diverted from customer-facing work.
 
-## Step 4b: Recommend *(suggested addition)*
+Cost rules:
+- Transition (one-time) and steady-state (annual) costs are separate.
+- Avoidable license cost is computed per path.
+- **No double counting:** each engineering hour is counted once, either at loaded cost *or* as displaced roadmap capacity, never both. *Suggestion: put hours at loaded cost in the dollar model; describe opportunity cost qualitatively (which roadmap work slips) using the same hours.*
+- Inputs are parameterized ranges, not point estimates.
 
-*Your outline has no explicit recommendation step; it's implied across 4 and 5. "Recommend" is one of the four task phases, so I'd make it a named step with a one-line verdict, the 2-3 reasons behind it, what would change our mind, and next steps for both directions plus Devin's role in each (the Loom requires this).*
+**Prototype ≠ production.** Explicitly list what the prototype showed vs. what it can't show. Name the largest unresolved economic and operational assumptions.
 
----
+## Step 4b: Recommendation (distinct output, `docs/RECOMMENDATION.md`)
 
-## Step 5: Loom synthesis
-
-- Deliverable: a **timestamped script, 5:00 max** (*about 650-700 spoken words at a normal pace; budget about 60-90s for the demo*).
-- It must cover, in order: (1) the most important aspects of Power Apps; (2) how Devin helps if they build, shown through the prototype; (3) what's replicable, what isn't, and the risk; (4) the build-vs-buy recommendation and why; (5) next steps in either direction and where Devin fits.
-- Audience: the client's VP of Engineering.
-- *Also needed (outside the script): a recorded Loom (you record it), a dry-run timing check, and the demo environment staged before recording.*
-
----
-
-## Step 6: Key Decisions one-pager
-
-*Challenge, audience conflict: your outline frames this for "a VP." The brief says it's for **Cognition**, "to understand your thought process, not for the hypothetical customer," and asks for an overview of **the system you designed/built, why that scope, key tradeoffs, and architectural decisions.** Recommendation reasoning belongs mainly in the Loom. Proposed fix: center the one-pager on the system and scope decisions, and spend at most a few lines on process, assumptions, and open questions.*
-
-*Challenge, length: process + assumptions + findings + open areas will not fit on 1 page alongside the architecture. Prioritize ruthlessly.*
-
-*Challenge, voice: "Do not submit AI slop." I'll draft from the build log and decision records, but the final wording should be yours, edited down hard.*
-
-Content: system overview, scope chosen and what was cut (and why), 3-5 key tradeoffs and architecture decisions, assumptions that drove them, and what we'd explore with more time.
+- Chosen path (a / b / c).
+- Conditions under which it holds.
+- What would change it (specific triggers, e.g. "if licensing is per app, not per user").
+- Next steps in either direction, and where Devin fits in each.
 
 ---
 
-## Cross-cutting
+## Step 5: Loom: decide content, then script `[COLLAB]`
 
-- *Overall time budget: only the prototype is capped (~2h), but over-investing in Steps 1-2 has the same plausibility problem. Suggest time-boxing research too.*
-- *Decision log: every time we pick A over B, add a one-line entry (in `TRACKER.md` or a `DECISIONS.md`). Step 6 then mostly writes itself.*
-- Final audit against `PROMPT.md` via `TRACKER.md` before submitting.
+1. **Content decisions first** `[COLLAB]`: for each of the 5 required topics, agree on the 1-3 points we make, the evidence behind them, and what we cut. Recorded in `docs/LOOM_OUTLINE.md`.
+   1. The most important aspects of Power Apps.
+   2. How Devin helps if they build, shown through the prototype.
+   3. What's replicable, what isn't, and where the risk lies.
+   4. The build-vs-buy recommendation and why.
+   5. What's next in either direction, and where Devin fits.
+2. **Timestamped script**, 5:00 max (~650-700 spoken words, including the demo segment).
+3. Dry-run timing check. Recording happens after the one-pager.
 
----
+## Step 6: Key Decisions one-pager `[COLLAB]` (for Cognition, 1 page)
 
-## Open questions for you
+- It is a design rationale, not a findings summary or a process diary.
+- Candidate sections: what was built; why this scope; how the system is structured; which alternatives and tradeoffs mattered; what the design does not establish.
+- Structure decided together; the final wording is yours.
 
-1. **One-pager audience:** agree it's for Cognition (system + scope decisions), not the VP?
-2. **2-hour clock:** does it cover only the build + README (research and planning excluded)? Do we log actual elapsed time honestly in the README even if it runs over?
-3. **Overall deadline / time budget** for the whole take-home?
-4. **Roles:** you record the Loom and own the final one-pager wording; I draft both. Correct?
-5. **Hosting:** is a local-run prototype enough, or do you want a live deployed URL for the demo?
-6. **Stack preference** (if any), or let Step 2f / 3a decide?
+## Step 7: Record the Loom, final audit
+
+- Record after the one-pager.
+- Final line-by-line audit against `PROMPT.md` via `TRACKER.md`.

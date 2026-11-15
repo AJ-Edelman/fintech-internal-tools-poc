@@ -36,14 +36,16 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 
 ## Plan Steps (see PLAN.md)
 
-- [ ] Step 1: Constraints, assumptions, needs, pain points
-- [ ] Step 2: Research (incl. 2f ranked capabilities to replicate)
-- [ ] Step 3a: Pre-prototype gate (success criteria defined)
-- [ ] Step 3b: Prototype + build log
-- [ ] Step 4: Evaluate
-- [ ] Step 4b: Recommend
-- [ ] Step 5: Loom script (timestamped, ≤5:00) + recording
-- [ ] Step 6: Key Decisions one-pager
+- [x] Framing decisions agreed (3 paths, layered comparison, avoidable cost, existing vs new apps)
+- [ ] Step 1: Constraints, assumption register, pain points
+- [ ] Step 2: Bounded, sourced research (2e capability table, 2f workflow candidate)
+- [ ] Step 3a: Pre-prototype gate (workflow, observable acceptance criteria, non-goals, build approach)
+- [ ] Step 3b: Prototype + evidence log + verification scripts + README
+- [ ] Step 4: Evaluate (7 lenses, transition vs steady-state, no double counting)
+- [ ] Step 4b: Recommendation (path, conditions, what changes it, next steps + Devin's role)
+- [ ] Step 5: Loom content decisions [COLLAB] → timestamped script ≤5:00
+- [ ] Step 6: Key Decisions one-pager [COLLAB]
+- [ ] Step 7: Record Loom, final audit
 
 ## Deliverables
 
@@ -53,6 +55,9 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 - [ ] Contains what was built with Devin
 - [ ] README explains what it does
 - [ ] README explains how to run it
+- [ ] README: prerequisites, clean-start check, seed data, demo users/roles, how to verify, limitations, reviewer access
+- [ ] Evidence log: Devin built / user directed / user verified, with links
+- [ ] Verified by running it: clean start works, main workflow works, changes persist across restart, a denied action fails at the API, claimed controls enforced on the backend (synthetic data only)
 
 ### 2. Loom Video (5 min max, for VP Eng)
 
@@ -67,10 +72,12 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 
 ### 3. Key Decisions One-Pager (1 page max, for Cognition)
 
-- [ ] Overview of the system designed/built
+- [ ] What was built
 - [ ] Why this scope was chosen
-- [ ] Key tradeoffs
-- [ ] Architectural decisions
+- [ ] How the system is structured (architectural decisions)
+- [ ] Alternatives and tradeoffs that mattered
+- [ ] What the design does not establish
+- [ ] Design rationale, not a findings summary or process diary
 - [ ] Fits on one page
 
 ## Final Audit
