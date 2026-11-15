@@ -24,7 +24,7 @@ Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S14). Last updat
 
 ## Pain-point hypotheses (the VP's stated reasons, stress-tested)
 1. **Cost.** Weakened by A5: under per-user licensing the marginal license cost of tools 4–13 may be ~$0. The cash case rests on retiring the *existing* spend (path c), which requires migrating all 3 apps and decommissioning the platform.
-2. **Customization control.** Plausible. Known platform ceilings include delegation limits (non-delegable queries only see the first 500–2,000 records by default, configurable up to 10,000, and can return silently wrong results [S7]), the Power Fx/canvas UX, and connector-bound integrations. Needs client evidence: which ceilings have they actually hit?
+2. **Customization control.** Plausible. Known platform ceilings include delegation limits (non-delegable queries only process the first 500 records by default (configurable up to 10,000) and can return silently wrong results [S7]), the Power Fx/canvas UX, and connector-bound integrations. Needs client evidence: which ceilings have they actually hit?
 3. **Engineering workflow.** Plausible for an engineering-led team: platform ALM goes through solutions and pipelines [S9], not the team's own git/CI/tests. *Unverified for this client.*
 4. **Unstated "why now":** possibly the 10+ new tools, a renewal date, or Devin adoption. The renewal date matters for cash savings timing. `OPEN`
 
