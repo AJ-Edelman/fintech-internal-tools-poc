@@ -52,19 +52,34 @@ Replicability: **E** = easy with Devin, **M** = needs deliberate engineering + r
 | Tier | Capability | Platform source | Why it matters here | Replicability |
 |---|---|---|---|---|
 | 1 | **Shared data model / context across apps** | Dataverse tables, relationships [S18] | KYC status visible to refunds without integration; 13 tools on one model | M (coupling comes with it: A10) |
+| 1 | **Data-layer business rules** (validation enforced at the server, for every app that writes the table) | Dataverse business rules "apply to all the table forms and at the server level" for canvas and model-driven apps [S20] | With 13 tools writing shared tables, invariants (e.g. refund ≤ original charge) can't live in each app's UI | M |
 | 1 | **Server-enforced permissions** (role, record, column/PII) | Dataverse roles, business units [S5], column security [S6] | KYC/refund data; separation of duties | M |
-| 1 | **Approval workflow** (maker-checker, thresholds) | Power Automate approvals [S11] | Money movement, KYC decisions | M |
+| 1 | **Workflow: stage-gated process + approvals** (maker-checker, thresholds, required data before advancing) | Power Automate approvals [S11]; business process flows with stage-gating [S21] | Money movement, KYC decisions | M |
 | 1 | **Audit trail of every state change** | Dataverse auditing [S10] | Regulators, internal audit | M (reads/exports: H on both sides) |
 | 1 | **Reusable foundation: tool N+1 is cheap** | Implicit: every app gets the above for free | 10+ tools planned | M (makes or breaks "build") |
 | 2 | Persistent data + forms/tables UI | Canvas / model-driven apps [S1] | Every tool needs it | E |
-| 2 | SSO via the corporate IdP | Entra ID (implicit in licensing [S3]) | Joiner/mover/leaver control | M (prototype stubs it) |
-| 2 | Change control / ALM into prod | Solutions + Pipelines [S9] | Regulated changes | E with git/CI (a build strength) |
+| 2 | SSO + group-based access via the corporate IdP | Environments are bound to an Entra tenant [S22]; roles assignable to Entra security-group teams [S5] | Joiner/mover/leaver control | M (prototype stubs it) |
+| 2 | Change control / ALM + dev/test/prod separation | Solutions + Pipelines [S9]; environments separate test/prod, each bound to a geography [S22] | Regulated changes | E with git/CI (a build strength) |
 | 2 | Integrations to internal/vendor APIs | Connectors [S1] | Payments, KYC vendor | M per integration |
-| 2 | **Low-code authoring by non-engineers** | Maker experience [S1] | Decides *who* builds and maintains (A3). If ops builds today, code moves that work to engineers | H: Devin speeds engineers up but doesn't remove engineering review |
+| 2 | **Low-code authoring by non-engineers** | Maker experience; **Copilot generates apps from natural language** [S19] | Decides *who* builds and maintains (A3). If ops builds today, code moves that work to engineers | H: Devin speeds engineers up but doesn't remove engineering review |
 | 3 | Governance at scale (DLP, environments, app inventory) | Data policies [S8], Managed Environments [S4] | Many tools, many owners | H |
-| 3 | Operated runtime (patching, residency, encryption, DR) | Microsoft-operated [S12] | Compliance evidence | H (moves to client: A8) |
+| 2 | Document attachments (e.g. KYC ID scans) | Dataverse File/Image column types [S25] | KYC evidence | E–M (storage + access control) |
+| 3 | Operated runtime (patching, residency, encryption, backup/DR) | Microsoft-operated [S12]; automatic backups, 7 days default, up to 28 for production managed environments [S23] | Compliance evidence | H (moves to client: A8) |
 
-**Gaps in earlier drafts, now added:** shared data context (found in 2d-bis) and low-code authoring (the economic counterweight to Devin's throughput argument).
+**Gaps in earlier drafts, now added:** shared data context (2d-bis), low-code authoring, and from the second pass (below) data-layer business rules and stage-gating.
+
+### Second pass (2026-11-15): what else Power Apps provides, and the verdict
+| Found | Verdict |
+|---|---|
+| Server-side business rules on tables, shared by all apps [S20] | **Added to Tier 1.** The only new must-replicate item. Without it, each tool re-implements (and drifts on) the same invariants |
+| Business process flows: stages, required steps, stage-gating [S21] | Folded into the Tier 1 workflow row (a state machine with guards) |
+| Copilot / "Plans" build apps from natural language [S19] | **Weakens the Devin-speed argument:** the platform also has AI-assisted building. The difference is the output (platform artifacts vs. code the client owns), not AI vs. no AI |
+| Environments: tenant-bound, geo-bound, test/prod separation [S22] | Tier 2 (folded into ALM) |
+| Automatic backups, 7–28 day retention; restore only into sandbox [S23] | Tier 3 (operated runtime) |
+| File/image columns [S25] | Tier 2 (KYC documents) |
+| Mobile and offline model-driven apps [S24] | Not needed: back-office ops tools |
+| Dynamics 365 shares the same Dataverse [S19] | If the client uses Dynamics, the $250k may be bundled (A4) and retiring the platform is harder |
+| Real-time workflows, actions, plug-ins, Azure functions [S19][S20] | Pro-dev extensibility exists on the platform too; it partly answers the "customization control" pain (H2) |
 
 **Rule for scope selection:** the prototype must exercise **all Tier 1 items**, stub Tier 2 items explicitly, and name Tier 3 items as not established.
 
@@ -72,13 +87,16 @@ Replicability: **E** = easy with Devin, **M** = needs deliberate engineering + r
 
 All candidates share the **same reusable foundation** to address scale: server-side RBAC middleware, an append-only audit log, a typed data layer, and a state-machine/approval module. A "how to add tool N" path shows reuse instead of asserting it.
 
-| Option | Workflow | Covers (2e) | Scaling evidence | Risk in 2h |
-|---|---|---|---|---|
-| **A** | Refund maker-checker (threshold → second approver, no self-approval, audit) **+ a second tool on the same foundation** (feature-flag change requests with approval) | 1, 2, 3, 4, 5, 7 | Tool #2 built from the template, timed, measured by new lines of code | Medium |
-| **B** | KYC review queue (claim/lock, decision with reason, escalation, PII masking by role) | 1, 2, 3, 4, (column security) | One tool only; reuse is argued, not shown | Medium |
-| **C** | Config-driven generic tool engine (define a tool in YAML) | 4, 5 | Strong on paper | **High**; it drifts toward "rebuilding the platform," which we ruled out |
+Tier 1 items: **T1a** shared data model, **T1b** data-layer rules, **T1c** server-enforced permissions, **T1d** workflow, **T1e** audit, **T1f** reusable foundation.
 
-*Recommendation: A.* It directly tests the riskiest "build" claim (#5: is tool N+1 cheap?) with a fintech control (maker-checker) and a denied path that can be checked at the API. Tool #2 reuses the existing feature-flag admin domain. *B is the fallback if you'd rather show column-level PII masking.*
+| Option | Workflow | Tier 1 covered | Scaling evidence | Risk in 2h |
+|---|---|---|---|---|
+| **A** | Refund maker-checker + feature-flag change requests on the same foundation | b, c, d, e, f (**not a**: the tools share no business data) | Tool #2 built from the template, timed, new lines counted | Medium |
+| **A2** | Refund maker-checker + light KYC review on a shared `customer` table; cross-tool rule (no refund while KYC pending/failed) enforced at the server; tool #2 forces one shared-model change and tool #1's tests must still pass | **a–f** | Tool #2 timed, new lines counted, coupling measured | Medium-high (PII masking likely cut) |
+| **B** | KYC review queue only (claim/lock, decision, escalation, PII masking) | a (one tool), b, c, d, e (**not f**) | Reuse argued, not shown | Medium |
+| **C** | Config-driven generic tool engine | a, f on paper | Strong on paper | **High**: drifts toward rebuilding the platform |
+
+*Pending your decision.* Against the rule above, only A2 exercises all of Tier 1.
 
 **What any option will not establish:** real IdP/SSO integration, production hosting and on-call, scale or performance, SOC 2 evidence, migration of existing Dataverse data, or the cost of tools 3–13.
 
@@ -101,3 +119,10 @@ All candidates share the **same reusable foundation** to address scale: server-s
 - [S16] Microsoft Learn, *Solution concepts*: https://learn.microsoft.com/en-us/power-platform/alm/solution-concepts-alm
 - [S17] Microsoft Learn, *Organize your solutions*: https://learn.microsoft.com/en-us/power-platform/alm/organize-solutions
 - [S18] Microsoft Learn, *What is Microsoft Dataverse?*: https://learn.microsoft.com/en-us/power-apps/maker/data-platform/data-platform-intro
+- [S19] Microsoft Learn, *What is Power Apps?*: https://learn.microsoft.com/en-us/power-apps/powerapps-overview
+- [S20] Microsoft Learn, *Apply business logic in Dataverse*: https://learn.microsoft.com/en-us/power-apps/maker/data-platform/processes
+- [S21] Microsoft Learn, *Business process flows overview*: https://learn.microsoft.com/en-us/power-automate/business-process-flows-overview
+- [S22] Microsoft Learn, *Power Platform environments overview*: https://learn.microsoft.com/en-us/power-platform/admin/environments-overview
+- [S23] Microsoft Learn, *Back up and restore environments*: https://learn.microsoft.com/en-us/power-platform/admin/backup-restore-environments
+- [S24] Microsoft Learn, *Overview of building a model-driven app*: https://learn.microsoft.com/en-us/power-apps/maker/model-driven-apps/model-driven-app-overview
+- [S25] Microsoft Learn, *Column data types in Dataverse*: https://learn.microsoft.com/en-us/power-apps/maker/data-platform/types-of-fields

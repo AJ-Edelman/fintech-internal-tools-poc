@@ -1,7 +1,7 @@
 # Step 1: Constraints, Assumptions, Needs, Pain Points
 
 Status key: **Accepted** (taken as given) · **Confirmed** / **Refuted** (by sourced research) · **Open** (needs client data) · **Unresolvable** (state both cases).
-Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S18). Last updated 2026-11-15.
+Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S25). Last updated 2026-11-15.
 
 ## Fixed constraints
 - Series C fintech, ~60 engineers. Regulated workloads: KYC/AML (PII), refunds (money movement), feature flags (production change control).
