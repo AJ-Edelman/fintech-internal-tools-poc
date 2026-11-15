@@ -22,11 +22,37 @@ Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S14). Last updat
 | A8 | The client has a cloud, an IdP, and CI/CD to deploy onto | Unresolvable (assumed yes) | **Having infrastructure ≠ free to host and maintain.** Every built app needs a named owning team for runtime, on-call, patching, access reviews, backups, and audit evidence. Today Microsoft owns the platform layer (encryption at rest, geo residency, platform patching [S12]); building moves that layer to the client. |
 | A9 | Cash license savings and engineering time are separate ledgers | Accepted (rule) | **Cash:** license avoided (depends on contract term, renewal date, minimums, and user overlap) − hosting − Devin spend − tooling. **Capacity:** engineering hours for build, review, migration, and ownership. They are never netted into one number. |
 
-## Pain-point hypotheses (the VP's stated reasons, stress-tested)
-1. **Cost.** Weakened by A5: under per-user licensing the marginal license cost of tools 4–13 may be ~$0. The cash case rests on retiring the *existing* spend (path c), which requires migrating all 3 apps and decommissioning the platform.
-2. **Customization control.** Plausible. Known platform ceilings include delegation limits (non-delegable queries only process the first 500 records by default (configurable up to 10,000) and can return silently wrong results [S7]), the Power Fx/canvas UX, and connector-bound integrations. Needs client evidence: which ceilings have they actually hit?
-3. **Engineering workflow.** Plausible for an engineering-led team: platform ALM goes through solutions and pipelines [S9], not the team's own git/CI/tests. *Unverified for this client.*
-4. **Unstated "why now":** possibly the 10+ new tools, a renewal date, or Devin adoption. The renewal date matters for cash savings timing. `OPEN`
+## Pain-point hypotheses
+
+### H1 (primary): the cost of scaling the portfolio *while staying compliant*
+The decision turns on the **all-in cost per additional tool** (build + ownership + compliance/security overhead), not on license cost alone. "Scaling" is split into five dimensions:
+
+| Dimension | Buy (platform) | Build (Devin + own stack) | Status |
+|---|---|---|---|
+| S1 More tools (3 → 13) | License ~flat; Premium = unlimited apps per user [S1] | Each tool adds build, review, ownership | **Refuted as a cost driver.** Buy scales better here |
+| S2 More users (ops headcount growth) | Grows linearly, $240/user/yr at list [S1] | ~flat per user | Open. Possibly the real cost story |
+| S3 Delivery throughput (who builds, how fast) | Fast for simple apps; non-engineers can build | Engineering capacity is the bottleneck; Devin is the lever | Open |
+| S4 Data volume / complexity | Delegation cap (default 500, max 10,000 records), silent wrong results [S7]; integrations go through connectors | No inherent cap, but engineered | Open: have they hit it? |
+| S5 Governance across many apps | Central: roles, auditing, DLP, inventory [S4][S5][S8][S10] | Grows per app **unless** apps share one foundation | Open. Main build risk |
+
+**Compliance/security overhead cuts against building by default:** the platform bundles identity, row/column security, auditing, DLP, encryption, and residency [S5][S6][S8][S10][S12]. Each built app joins the client's audit scope (access reviews, change evidence, scanning, pen tests, incident response). That overhead scales per app unless the apps share a foundation.
+
+**It argues *for* building only if one of these is the actual pain:**
+- Audit gaps the platform doesn't cover, e.g. PII *read/export* logging (Dataverse auditing excludes reads and exports [S10]).
+- Auditors preferring git-based review/CI over platform pipelines [S9]. *Unverified.*
+- Citizen-developer sprawl raising the platform's governance burden too.
+- Vendor-risk / data-control requirements (e.g. PII must stay in their own cloud).
+
+**Implication:** Build wins only if S2, S3, or S4 dominate **and** a shared foundation keeps the per-tool compliance overhead near flat (S5). That is what the prototype's second tool is meant to test.
+
+### H2 (alternative): control or compliance, not scale
+The real pain is customization ceilings already hit or audit/change-control requirements, independent of portfolio size. If H2 holds, scale is secondary and the comparison is about capability fit.
+
+### H3 (stated by the VP, weakened): license savings
+Under per-user licensing the marginal license cost of tools 4–13 is ~$0 (A5). Cash savings mainly come from retiring the existing spend (path c), which requires migrating all 3 apps and decommissioning the platform.
+
+### Unknown: "why now"
+Possibly the 10+ tool pipeline, a renewal date, or Devin adoption. The renewal date sets when any cash savings could start. `OPEN`
 
 ## Value the VP may be under-weighting
 - Built-in identity (Entra ID), role-based and column-level security [S5][S6], record auditing [S10], data policies/DLP across connectors [S8], and Managed Environments governance [S4]: all in the license and all things a regulated team must rebuild **and evidence** if it builds.
