@@ -38,6 +38,11 @@ Scope: only the capabilities relevant to this client. No market survey. All sour
 - **Reframe:** the cost argument mainly applies to *retiring the existing spend* (path c), not to *building new tools* (path b). Path b has to win on fit, control, and speed.
 - Value the VP may miss: identity, row/column security, auditing, DLP, a Microsoft-operated runtime. All of these are rebuild-and-evidence work if they build.
 
+## 2d-bis. Shared context and coupling (resolves A10)
+- **Shared context is a core value, not a side effect.** Dataverse gives every app the same tables (standard tables plus custom ones), relationships, and metadata [S18], and the same security roles and audit [S5][S10]. A KYC decision is immediately visible to the refunds app without an integration.
+- **Its cost is documented coupling:** a single shared unmanaged layer [S15][S16], "top wins" component layering [S15], cross-solution table dependencies that break upgrades and deletes [S17].
+- **Implication for build:** any credible build has to provide shared context as well: one data model with shared entities (e.g. `customer`), one identity and role model, one audit log, one approval engine. A set of standalone apps would lose the platform's main value. The coupling comes along with it, so the prototype must measure it, not hide it.
+
 ## 2e. Capabilities that matter for a fintech team shipping many tools
 
 Replicability: **E** = easy with Devin, **M** = needs deliberate engineering + review, **H** = platform-native, costly to replicate or evidence.
@@ -84,3 +89,7 @@ All candidates share the **same reusable foundation** to address scale: server-s
 - [S12] Microsoft Learn, *Compliance and data privacy (Power Platform)*: https://learn.microsoft.com/en-us/power-platform/admin/wp-compliance-data-privacy
 - [S13] Cognition, *Devin self-serve plans* / *Billing*: https://docs.devin.ai/admin/billing/self-serve, https://docs.devin.ai/admin/billing
 - [S14] Cognition, *Security at Cognition*: https://docs.devin.ai/admin/security
+- [S15] Microsoft Learn, *Solution layers and merge behavior*: https://learn.microsoft.com/en-us/power-platform/alm/solution-layers-alm
+- [S16] Microsoft Learn, *Solution concepts*: https://learn.microsoft.com/en-us/power-platform/alm/solution-concepts-alm
+- [S17] Microsoft Learn, *Organize your solutions*: https://learn.microsoft.com/en-us/power-platform/alm/organize-solutions
+- [S18] Microsoft Learn, *What is Microsoft Dataverse?*: https://learn.microsoft.com/en-us/power-apps/maker/data-platform/data-platform-intro
