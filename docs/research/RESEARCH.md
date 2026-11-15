@@ -43,28 +43,36 @@ Scope: only the capabilities relevant to this client. No market survey. All sour
 - **Its cost is documented coupling:** a single shared unmanaged layer [S15][S16], "top wins" component layering [S15], cross-solution table dependencies that break upgrades and deletes [S17].
 - **Implication for build:** any credible build has to provide shared context as well: one data model with shared entities (e.g. `customer`), one identity and role model, one audit log, one approval engine. A set of standalone apps would lose the platform's main value. The coupling comes along with it, so the prototype must measure it, not hide it.
 
-## 2e. Capabilities that matter for a fintech team shipping many tools
+## 2e. Core Power Apps capabilities for this client (consolidated)
+
+This consolidates 2a (what exists) and 2d-bis (shared context) into one ranked list. **Tier 1** = critical: a credible build must provide it, or the client loses something it has today. **Tier 2** = important but can be phased or stubbed. **Tier 3** = real but outside a prototype's reach.
 
 Replicability: **E** = easy with Devin, **M** = needs deliberate engineering + review, **H** = platform-native, costly to replicate or evidence.
 
-| Rank | Capability | Why it matters here | Replicability |
-|---|---|---|---|
-| 1 | Server-enforced permissions (role + record level) | KYC/refund data; separation of duties | M |
-| 2 | Workflow with approvals (maker-checker, thresholds) | Money movement, KYC decisions | M |
-| 3 | Audit trail of every state change | Regulators, internal audit | M (reads/exports are H) |
-| 4 | Persistent data model + forms/tables UI | Every tool needs it | E |
-| 5 | **Reusable foundation**: tool N+1 is cheap | 10+ tools planned | M (this is what makes or breaks "build") |
-| 6 | SSO via the corporate IdP | Joiner/mover/leaver control | M (prototype stubs it) |
-| 7 | Change control / ALM into prod | Feature flags, regulated changes | E with git/CI (a strength of building) |
-| 8 | Integrations to internal and vendor APIs | Payments, KYC vendors | M per integration |
-| 9 | Governance at scale (DLP, environments, app inventory) | Many tools, many owners | H |
-| 10 | Operated runtime (patching, residency, encryption, DR) | Compliance evidence | H (moves to client) |
+| Tier | Capability | Platform source | Why it matters here | Replicability |
+|---|---|---|---|---|
+| 1 | **Shared data model / context across apps** | Dataverse tables, relationships [S18] | KYC status visible to refunds without integration; 13 tools on one model | M (coupling comes with it: A10) |
+| 1 | **Server-enforced permissions** (role, record, column/PII) | Dataverse roles, business units [S5], column security [S6] | KYC/refund data; separation of duties | M |
+| 1 | **Approval workflow** (maker-checker, thresholds) | Power Automate approvals [S11] | Money movement, KYC decisions | M |
+| 1 | **Audit trail of every state change** | Dataverse auditing [S10] | Regulators, internal audit | M (reads/exports: H on both sides) |
+| 1 | **Reusable foundation: tool N+1 is cheap** | Implicit: every app gets the above for free | 10+ tools planned | M (makes or breaks "build") |
+| 2 | Persistent data + forms/tables UI | Canvas / model-driven apps [S1] | Every tool needs it | E |
+| 2 | SSO via the corporate IdP | Entra ID (implicit in licensing [S3]) | Joiner/mover/leaver control | M (prototype stubs it) |
+| 2 | Change control / ALM into prod | Solutions + Pipelines [S9] | Regulated changes | E with git/CI (a build strength) |
+| 2 | Integrations to internal/vendor APIs | Connectors [S1] | Payments, KYC vendor | M per integration |
+| 2 | **Low-code authoring by non-engineers** | Maker experience [S1] | Decides *who* builds and maintains (A3). If ops builds today, code moves that work to engineers | H: Devin speeds engineers up but doesn't remove engineering review |
+| 3 | Governance at scale (DLP, environments, app inventory) | Data policies [S8], Managed Environments [S4] | Many tools, many owners | H |
+| 3 | Operated runtime (patching, residency, encryption, DR) | Microsoft-operated [S12] | Compliance evidence | H (moves to client: A8) |
+
+**Gaps in earlier drafts, now added:** shared data context (found in 2d-bis) and low-code authoring (the economic counterweight to Devin's throughput argument).
+
+**Rule for scope selection:** the prototype must exercise **all Tier 1 items**, stub Tier 2 items explicitly, and name Tier 3 items as not established.
 
 ## 2f. Prototype scope candidates (for decision, not yet chosen)
 
 All candidates share the **same reusable foundation** to address scale: server-side RBAC middleware, an append-only audit log, a typed data layer, and a state-machine/approval module. A "how to add tool N" path shows reuse instead of asserting it.
 
-| Option | Workflow | Covers (2e ranks) | Scaling evidence | Risk in 2h |
+| Option | Workflow | Covers (2e) | Scaling evidence | Risk in 2h |
 |---|---|---|---|---|
 | **A** | Refund maker-checker (threshold → second approver, no self-approval, audit) **+ a second tool on the same foundation** (feature-flag change requests with approval) | 1, 2, 3, 4, 5, 7 | Tool #2 built from the template, timed, measured by new lines of code | Medium |
 | **B** | KYC review queue (claim/lock, decision with reason, escalation, PII masking by role) | 1, 2, 3, 4, (column security) | One tool only; reuse is argued, not shown | Medium |
