@@ -1,7 +1,7 @@
 # Step 1: Constraints, Assumptions, Needs, Pain Points
 
 Status key: **Accepted** (taken as given) · **Confirmed** / **Refuted** (by sourced research) · **Open** (needs client data) · **Unresolvable** (state both cases).
-Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S25). Last updated 2026-11-15.
+Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S31). Last updated 2026-11-15.
 
 ## Fixed constraints
 - Series C fintech, ~60 engineers. Regulated workloads: KYC/AML (PII), refunds (money movement), feature flags (production change control).
@@ -22,6 +22,7 @@ Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S25). Last updat
 | A8 | The client has a cloud, an IdP, and CI/CD to deploy onto | Unresolvable (assumed yes) | **Having infrastructure ≠ free to host and maintain.** Every built app needs a named owning team for runtime, on-call, patching, access reviews, backups, and audit evidence. Today Microsoft owns the platform layer (encryption at rest, geo residency, platform patching [S12]); building moves that layer to the client. |
 | A9 | Cash license savings and engineering time are separate ledgers | Accepted (rule) | **Cash:** license avoided (depends on contract term, renewal date, minimums, and user overlap) − hosting − Devin spend − tooling. **Capacity:** engineering hours for build, review, migration, and ownership. They are never netted into one number. |
 | A10 | "Customization control" = freedom from coupling | **Refuted (sourced)** | Customization has two parts. (1) *Platform ceilings*: things that can't be done at all (delegation cap [S7], connector-bound integrations). Building removes these. (2) *Coupling*: shared components make one app's change ripple into others. This is documented: all unmanaged solutions share one unmanaged layer with no isolation [S15][S16]; most components follow "top wins" layering [S15]; Microsoft advises keeping all tables in one solution because cross-solution table relationships cause upgrade/delete failures, and solution dependencies enforce import order [S17]; editing a managed component creates a dependency that blocks uninstall [S16]. Building does **not** remove coupling: the shared foundation that makes tool N+1 cheap (A5, H1-S5) creates the same coupling. Building changes **who sets the boundaries** and who owns the breakage. |
+| A11 | Which rules apply to the client | Unresolvable (assumed) | FTC Safeguards Rule applies to non-bank financial institutions [S26]; NYDFS Part 500 only if NY-licensed [S28][S29]; BSA recordkeeping for money transmitters [S27]; bank partners may add their own. We use them as the requirements baseline, not as a legal determination. |
 
 ## Pain-point hypotheses
 

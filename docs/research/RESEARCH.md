@@ -92,13 +92,33 @@ Tier 1 items: **T1a** shared data model, **T1b** data-layer rules, **T1c** serve
 | Option | Workflow | Tier 1 covered | Scaling evidence | Risk in 2h |
 |---|---|---|---|---|
 | **A** | Refund maker-checker + feature-flag change requests on the same foundation | b, c, d, e, f (**not a**: the tools share no business data) | Tool #2 built from the template, timed, new lines counted | Medium |
-| **A2** | Refund maker-checker + light KYC review (review a customer, record a decision with a reason; no claim/lock, escalation, or documents) on a shared `customer` table; cross-tool rule (no refund while KYC pending/failed) enforced at the server; **server-side PII masking by role** on 2–3 columns, with unmasked reads written to the audit log; tool #2 forces one shared-model change and tool #1's tests must still pass. Small default seed for the demo; separate `--scale` seed (50k records) for the paging check only | **a–f** (incl. column-level in c) | Tool #2 timed, new lines counted, coupling measured | Medium-high (managed by trimming KYC breadth, not Tier 1) |
+| **A2** | Refund maker-checker + light KYC review (review a customer, record a decision with a reason; no claim/lock, escalation, or documents) on a shared `customer` table; cross-tool rule (no refund while KYC pending/failed) enforced at the server; **server-side PII masking by role** on 2–3 columns, with unmasked reads written to the audit log; audit log append-only **enforced in the database** and detailed enough to reconstruct a refund; role assignments listable for access review; CI runs backend tests on every push; tool #2 forces one shared-model change and tool #1's tests must still pass. Small default seed for the demo; separate `--scale` seed (50k records) for the paging check only | **a–f** (incl. column-level in c) | Tool #2 timed, new lines counted, coupling measured | Medium-high (managed by trimming KYC breadth, not Tier 1) |
 | **B** | KYC review queue only (claim/lock, decision, escalation, PII masking) | a (one tool), b, c, d, e (**not f**) | Reuse argued, not shown | Medium |
 | **C** | Config-driven generic tool engine | a, f on paper | Strong on paper | **High**: drifts toward rebuilding the platform |
 
 *Pending your decision.* Against the rule above, only A2 exercises all of Tier 1.
 
 **What any option will not establish:** real IdP/SSO integration, production hosting and on-call, scale or performance, SOC 2 evidence, migration of existing Dataverse data, or the cost of tools 3–13.
+
+## 2g. Cross-check: what a fintech's internal tools must satisfy (beyond Microsoft's feature list)
+
+Sections 2a–2e list what Power Apps *provides*. This pass asks what a fintech's internal tools are *required* to do, from the rules most likely to apply (applicability is assumption A11), plus one survey of engineering teams.
+
+| Requirement | Source | Already in Tier 1/2? | Change to the prototype |
+|---|---|---|---|
+| Least-privilege access; periodic access review; prompt removal after departures | FTC Safeguards 314.4(c)(1) [S26]; NYDFS 500.7 (review at least annually) [S28] | T1c permissions; Tier 2 SSO | **Add:** role assignments stored as data and listable for an access review |
+| Separation of duties | NIST SP 800-53 AC-5 [S30] | T1d maker-checker | None (no self-approval already planned). Admins must not be able to edit the audit log (AC-5 guidance) |
+| Log user activity; detect tampering | FTC 314.4(c)(8) [S26]; NIST AU-9 protect audit records from modification/deletion [S30] | T1e audit | **Add:** append-only enforced **in the database** (update/delete on audit rows fails), plus a test. Unmasked-PII reads are already logged |
+| Reconstruct material financial transactions; keep records 5 years | NYDFS 500.6 [S29]; BSA records 5 years [S27] | T1e audit | **Add:** audit entries carry who, what, before/after values, reason, time, so a refund's history can be rebuilt from the log alone. Retention itself is **not established** |
+| Secure development practices for in-house apps | FTC 314.4(c)(4) [S26] | Not listed before | **CI becomes required:** backend tests run automatically on every push. Applies specifically to *building* |
+| Change-management procedures | FTC 314.4(c)(7) [S26] | Tier 2 ALM | Covered by git + CI + PR review |
+| MFA for anyone accessing customer data | FTC 314.4(c)(5) [S26] | Tier 2 SSO | Not established (IdP's job; prototype stubs login) |
+| Encryption in transit and at rest | FTC 314.4(c)(3) [S26] | Tier 3 runtime | Not established (hosting) |
+| Dispose of customer data within 2 years of last use unless retention is required | FTC 314.4(c)(6) [S26] | Not listed before | Not established. Note the tension with 5-year retention: data lifecycle is a capability every built tool needs |
+
+**Engineering-team view (vendor survey, treat with caution):** Retool's 2022 survey (>2,000 respondents, mostly developers) found ~33% of respondents' time went to building internal tools, most often on Postgres and internal APIs, and flagged a "worryingly lax approach" to security in internal tools [S31]. That supports the shared, secure foundation as the thing to test, not single-app speed.
+
+**Net result:** no new Tier 1 capability, but three Tier 1 items get stricter (tamper-resistant audit, reconstructable audit, reviewable role assignments) and CI moves from stretch to required.
 
 ## Sources (accessed 2026-11-15)
 - [S1] Microsoft, *Power Apps licensing and pricing*: https://www.microsoft.com/en-us/power-platform/products/power-apps/pricing
@@ -126,3 +146,9 @@ Tier 1 items: **T1a** shared data model, **T1b** data-layer rules, **T1c** serve
 - [S23] Microsoft Learn, *Back up and restore environments*: https://learn.microsoft.com/en-us/power-platform/admin/backup-restore-environments
 - [S24] Microsoft Learn, *Overview of building a model-driven app*: https://learn.microsoft.com/en-us/power-apps/maker/model-driven-apps/model-driven-app-overview
 - [S25] Microsoft Learn, *Column data types in Dataverse*: https://learn.microsoft.com/en-us/power-apps/maker/data-platform/types-of-fields
+- [S26] eCFR, *16 CFR 314.4 (FTC Safeguards Rule), Elements*: https://www.ecfr.gov/current/title-16/chapter-I/subchapter-C/part-314/section-314.4
+- [S27] eCFR, *31 CFR 1010.430, Nature of records and retention period*: https://www.ecfr.gov/current/title-31/subtitle-B/chapter-X/part-1010/subpart-D/section-1010.430
+- [S28] LII, *23 NYCRR 500.7, Access privileges and management*: https://www.law.cornell.edu/regulations/new-york/23-NYCRR-500.7
+- [S29] NYDFS, *23 NYCRR 500 (incl. 500.6 Audit Trail)*: https://www.dfs.ny.gov/system/files/documents/2023/03/23NYCRR500_0.pdf
+- [S30] NIST, *SP 800-53 Rev. 5, controls AC-5 and AU-9*: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final (control text via https://csf.tools/reference/nist-sp-800-53/r5/ac/ac-5/ and /au/au-9/)
+- [S31] Retool, *The state of internal tools 2022* (vendor survey): https://retool.com/blog/the-state-of-internal-tools-2022
