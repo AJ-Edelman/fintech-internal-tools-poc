@@ -20,8 +20,14 @@ def mask_bank_account(value: str | None) -> str:
 
 def redact_text(text: str) -> str:
     """Mask anything shaped like an SSN or an account number inside free text."""
-    text = _SSN_RE.sub(lambda m: mask_ssn(m.group()), text)
-    return _LONG_DIGITS_RE.sub(lambda m: mask_bank_account(m.group()), text)
+    # Repeat until nothing matches: masking "123-45-6901-17-2231" once leaves "***-**-6901-17-2231",
+    # which still holds an SSN. Every pass removes digits, so this ends.
+    while True:
+        masked = _SSN_RE.sub(lambda m: mask_ssn(m.group()), text)
+        masked = _LONG_DIGITS_RE.sub(lambda m: mask_bank_account(m.group()), masked)
+        if masked == text:
+            return masked
+        text = masked
 
 
 def redact(value):

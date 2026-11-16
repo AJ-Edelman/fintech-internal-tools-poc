@@ -299,3 +299,45 @@ def test_ac7_ssn_glued_to_other_characters_never_reaches_an_audit_row(login, sql
                 assert raw not in blob, (table, row["id"], raw)
     reasons = [r["reason"] for r in rows]
     assert "ssn***-**-3456 end" in reasons and "1***-**-3456 end" in reasons
+
+
+def test_ac7_ssn_overlapping_an_ssn_shaped_prefix_never_reaches_an_audit_row(login, sql):
+    agent, approver, kyc, admin = login("agent1"), login("approver1"), login("kyc1"), login("admin1")
+    overlapping = [f"123-45-6{SSN_1}", f"999-99-9{SSN_1}x", f"{SSN_1[:10]}{SSN_1}", f"123-45-6{SSN_2} _{BANK_2}_ {SSN_2}"]
+    for charge_id, reason in enumerate(overlapping, start=1):
+        assert request_refund(agent, charge_id=charge_id, amount_cents=75000, reason=reason).status_code == 201
+    assert approver.post("/api/refunds/1/reject", json={"reason": overlapping[0]}).status_code == 200
+    assert approver.post("/refunds/2/decision",
+                         data={"decision": "approve", "reason": overlapping[1]}).status_code == 303
+    assert kyc.post("/api/kyc/2/decision", json={"decision": "reject", "reason": overlapping[3]}).status_code == 200
+    assert admin.put("/api/settings/auto-approve-limit",
+                     json={"value_cents": 0, "reason": overlapping[2]}).status_code == 200
+    assert admin.post("/admin/settings", data={"value_cents": "0", "reason": overlapping[0]}).status_code == 200
+    assert sql.execute("SELECT COUNT(*) FROM audit_event").fetchone()[0] == 9
+    for table in ("audit_event", "refund"):
+        for row in sql.execute(f"SELECT * FROM {table}").fetchall():
+            blob = " ".join("" if value is None else str(value) for value in tuple(row))
+            for raw in RAW_VALUES:
+                assert raw not in blob, (table, row["id"], raw)
+    for client, path in ((agent, "/api/refunds"), (agent, "/refunds"), (approver, "/refunds/queue"),
+                         (admin, "/api/audit?limit=500"), (admin, "/admin/audit")):
+        body = client.get(path).text
+        for raw in RAW_VALUES:
+            assert raw not in body, (path, raw)
+
+
+def test_redacted_text_never_contains_an_ssn_or_long_digit_run():
+    import random
+    import re
+
+    from app.foundation.pii import redact_text
+
+    rng = random.Random(7)
+    pieces = [SSN_1, SSN_2, BANK_1, BANK_2, "-", "-", "1", "9", "12", "123-45-6", "999-99-", "x", "_", " ", "-17-"]
+    for _ in range(20000):
+        text = "".join(rng.choice(pieces) for _ in range(rng.randint(1, 7)))
+        out = redact_text(text)
+        assert not re.search(r"\d{3}-\d{2}-\d{4}", out), (text, out)
+        assert not re.search(r"\d{8,}", out), (text, out)
+        for raw in (SSN_1, SSN_2, BANK_1, BANK_2):
+            assert raw not in out, (text, out)
