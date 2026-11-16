@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}Internal tools{% endblock %}</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #222; }
+nav a { margin-right: 1rem; }
+table { border-collapse: collapse; margin: 1rem 0; }
+th, td { border: 1px solid #ccc; padding: .3rem .6rem; text-align: left; vertical-align: top; }
+th { background: #f2f2f2; }
+.error { color: #a00; font-weight: bold; }
+.ok { color: #060; }
+label { display: block; margin: .5rem 0; }
+code { font-size: .85em; }
+</style>
+</head>
+<body>
+<nav>
+{% for href, label in nav %}<a href="{{ href }}">{{ label }}</a>{% endfor %}
+{% if user %}<span>Signed in as <strong>{{ user.username }}</strong> ({{ user.roles | join(", ") or "no roles" }})</span>
+<a href="/login">Switch user</a>{% endif %}
+</nav>
+<hr>
+{% block body %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Refunds{% endblock %}
+{% block body %}
+<h1>Refunds</h1>
+<form method="get" action="/refunds">
+<label>Status
+<select name="status">
+<option value="">all</option>
+{% for s in statuses %}<option value="{{ s }}" {% if result.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+</select></label>
+<input type="hidden" name="page_size" value="{{ result.page_size }}">
+<button type="submit">Filter</button>
+</form>
+{% set extra = "&page_size=" ~ result.page_size ~ ("&status=" ~ result.status if result.status else "") %}
+{% include "_pager.html" %}
+{% include "_refund_table.html" %}
+{% endblock %}

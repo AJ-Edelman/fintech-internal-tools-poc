@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block body %}
+<h1>Audit log (latest 200)</h1>
+<table>
+<tr><th>ID</th><th>When (UTC)</th><th>Who</th><th>What</th><th>Entity</th><th>Before</th><th>After</th><th>Reason</th></tr>
+{% for e in events %}
+<tr><td>{{ e.id }}</td><td>{{ e.created_at }}</td><td>{{ e.actor }}</td><td>{{ e.action }}</td><td>{{ e.entity }} {{ e.entity_id }}</td>
+<td><code>{{ e.before | tojson if e.before is not none else "" }}</code></td>
+<td><code>{{ e.after | tojson if e.after is not none else "" }}</code></td><td>{{ e.reason or "" }}</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

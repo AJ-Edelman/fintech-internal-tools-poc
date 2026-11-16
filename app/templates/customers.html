@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+{% block body %}
+<h1>Customers</h1>
+<table>
+<tr><th>ID</th><th>Name</th><th>Email</th><th>SSN</th><th>Bank account</th></tr>
+{% for c in customers %}
+<tr><td><a href="/customers/{{ c.id }}">{{ c.id }}</a></td><td>{{ c.name }}</td><td>{{ c.email }}</td><td>{{ c.ssn }}</td><td>{{ c.bank_account }}</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

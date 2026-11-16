@@ -1,0 +1,106 @@
+"""Stubbed identity: demo users, password login, server-side session, roles read per request."""
+import hashlib
+import hmac
+import secrets
+from dataclasses import dataclass
+
+from fastapi import Request
+from sqlalchemy import text
+
+from .db import utcnow
+from .errors import AppError
+from .permissions import permissions_for
+
+COOKIE = "session"
+_ITERATIONS = 20_000
+
+
+def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+    salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), _ITERATIONS)
+    return salt, digest.hex()
+
+
+@dataclass(frozen=True)
+class User:
+    id: int
+    username: str
+    roles: tuple[str, ...]
+    permissions: frozenset[str]
+    is_system: bool = False
+
+    def can(self, permission: str) -> bool:
+        return permission in self.permissions
+
+
+def create_user(conn, username: str, password: str, roles=()) -> int:
+    salt, digest = hash_password(password)
+    user_id = conn.execute(
+        text("INSERT INTO app_user (username, password_salt, password_hash) VALUES (:u, :s, :h)"),
+        {"u": username, "s": salt, "h": digest},
+    ).lastrowid
+    for role in roles:
+        conn.execute(
+            text("INSERT INTO role_assignment (user_id, role) VALUES (:u, :r)"),
+            {"u": user_id, "r": role},
+        )
+    return user_id
+
+
+def login(conn, username: str, password: str) -> str | None:
+    row = conn.execute(
+        text("SELECT id, password_salt, password_hash FROM app_user WHERE username = :u"),
+        {"u": username},
+    ).first()
+    if row is None:
+        return None
+    _, digest = hash_password(password, row.password_salt)
+    if not hmac.compare_digest(digest, row.password_hash):
+        return None
+    token = secrets.token_urlsafe(32)
+    conn.execute(
+        text("INSERT INTO user_session (token, user_id, created_at) VALUES (:t, :u, :c)"),
+        {"t": token, "u": row.id, "c": utcnow()},
+    )
+    return token
+
+
+def user_from_request(request: Request) -> User | None:
+    token = request.cookies.get(COOKIE)
+    if not token:
+        return None
+    with request.app.state.engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT u.id, u.username FROM user_session s JOIN app_user u ON u.id = s.user_id "
+                "WHERE s.token = :t"
+            ),
+            {"t": token},
+        ).first()
+        if row is None:
+            return None
+        roles = tuple(
+            r[0]
+            for r in conn.execute(
+                text("SELECT role FROM role_assignment WHERE user_id = :u ORDER BY role"),
+                {"u": row.id},
+            )
+        )
+    return User(id=row.id, username=row.username, roles=roles, permissions=permissions_for(roles))
+
+
+def require(*permissions: str):
+    """Route dependency: 401 without a session, 403 unless the caller holds one of `permissions`."""
+    assert permissions
+
+    def dependency(request: Request) -> User:
+        user = user_from_request(request)
+        if user is None:
+            raise AppError(401, "not authenticated")
+        request.state.user = user
+        if not any(p in user.permissions for p in permissions):
+            raise AppError(403, "permission denied: needs " + " or ".join(permissions))
+        return user
+
+    dependency.required_permissions = permissions
+    return dependency

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Approval queue{% endblock %}
+{% block body %}
+<h1>Approval queue</h1>
+<p>Refunds waiting for a decision. Open one to approve or reject it.</p>
+{% set extra = "" %}
+{% include "_pager.html" %}
+{% include "_refund_table.html" %}
+{% endblock %}

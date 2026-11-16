@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Access review{% endblock %}
+{% block body %}
+<h1>Access review</h1>
+<table>
+<tr><th>User</th><th>Role</th></tr>
+{% for a in assignments %}<tr><td>{{ a.username }}</td><td>{{ a.role }}</td></tr>{% endfor %}
+</table>
+{% endblock %}

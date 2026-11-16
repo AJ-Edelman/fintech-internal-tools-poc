@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Refund {{ refund.id }}{% endblock %}
+{% block body %}
+<h1>Refund {{ refund.id }}</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<table>
+<tr><th>Charge</th><td>{{ refund.charge_id }}</td></tr>
+<tr><th>Amount</th><td>{{ refund.amount_cents | dollars }}</td></tr>
+<tr><th>Status</th><td>{{ refund.status }}</td></tr>
+<tr><th>Requested by</th><td>{{ refund.requested_by }}</td></tr>
+<tr><th>Decided by</th><td>{{ refund.decided_by or "" }}</td></tr>
+<tr><th>Reason</th><td>{{ refund.reason }}</td></tr>
+</table>
+{% if refund.status == "pending_approval" and user.can("refund:approve") %}
+<h2>Decide</h2>
+<form method="post" action="/refunds/{{ refund.id }}/decision">
+<label>Reason <input name="reason" size="60"></label>
+<button type="submit" name="decision" value="approve">Approve</button>
+<button type="submit" name="decision" value="reject">Reject</button>
+</form>
+{% endif %}
+<h2>Audit history</h2>
+{% include "_history.html" %}
+{% endblock %}

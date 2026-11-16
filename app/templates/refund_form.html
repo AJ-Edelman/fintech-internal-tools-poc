@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Request refund{% endblock %}
+{% block body %}
+<h1>Request a refund</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/refunds/new">
+<label>Charge
+<select name="charge_id">
+{% for c in charges %}
+<option value="{{ c.id }}" {% if values.charge_id == c.id|string %}selected{% endif %}>#{{ c.id }} {{ c.customer_name }}: {{ c.amount_cents | dollars }} (already pending or approved: {{ c.committed_cents | dollars }})</option>
+{% endfor %}
+</select></label>
+<label>Amount in dollars <input name="amount" value="{{ values.amount or '' }}" placeholder="12.34"></label>
+<label>Reason <input name="reason" value="{{ values.reason or '' }}" size="60"></label>
+<button type="submit">Request refund</button>
+</form>
+{% endblock %}
