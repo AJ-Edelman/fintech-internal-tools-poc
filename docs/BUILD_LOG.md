@@ -306,3 +306,35 @@ threshold, audit rule or cross-tool rule was cut. Nothing here was verified by a
 # BUILD_SPEC_2
 
 Start: 02:16 UTC (2026-11-16). Hard stop per the spec is recorded below once the spec is read.
+
+Spec clock: start 02:16 UTC; minute 30 = 02:46 (tool 3 must start); minute 45 = 03:01 (feature stop);
+minute 55 = 03:11 (hard stop).
+
+## Stage 0: contracts (me alone, 02:20 to 02:21 wall clock)
+
+- Merged `main` (brings `docs/BUILD_SPEC_2.md`) at 02:16; no conflicts.
+- Before stage 0, the four Devin Review findings on the feedback commit were fixed (02:17 to 02:19):
+  role checkboxes, empty role list, narrow-screen nav, exact audit offset.
+- Migration numbering: the product-feedback work had already added `003_admin_settings.sql`. The
+  spec fixes 003 (regions) and 004 (tool 3), so admin settings was renamed to
+  `006_admin_settings.sql`. A local database migrated with the old 003 must be rebuilt; no shared
+  database used it.
+- Contracts committed as `19fa797`: migrations 003 to 005; `connectors.py`, `lists.py`, `scope.py`,
+  `fake_services.py`, `connector_routes.py` with final signatures (stubs that keep the suite green);
+  `workflow.py` calls `scope.check_customer` before every transition (via `Workflow.customer_of`) and
+  `connectors.enqueue` after each transition's audit event (via `Transition.sends`); `write_audit`
+  returns the new id; `User.scopes`; delivery middleware in `main.py`; autouse fake reset in
+  `conftest.py`; new roles and permissions; admin user routes moved from `web.py` to
+  `admin_routes.py` so workers B and C do not share a file. `make test`: `49 passed, 1 skipped`.
+- After this commit only I edit `workflow.py`, `main.py`, the migrations and `conftest.py`.
+
+## Stage 1: three parallel workers (child sessions, 02:22 start)
+
+| Worker | Session | Branch | Files |
+|---|---|---|---|
+| A connections | 8f2f08d84f63489fb68660b19e597f70 | devin/s2-connections | connectors.py, fake_services.py, connector_routes.py, test_connectors.py |
+| B shared lists | 36e9a0496a5943b0bbca8e9d77ecf2a4 | devin/s2-lists | lists.py, listing.py, customers.py, audit.py (lists), web.py, refunds/routes.py, kyc/routes.py, list and detail templates, test_lists.py, test_scale.py |
+| C region access | 2be0d3972831473488e17d357757b788 | devin/s2-scope | scope.py, auth.py, users.py, admin_routes.py, access_review.html, seed.py, scripts/access_review.py, test_scope.py, test_migration_004.py |
+
+Each was told the deadline 02:42 UTC to push. Their own start and end times are copied from their
+final reports below.
