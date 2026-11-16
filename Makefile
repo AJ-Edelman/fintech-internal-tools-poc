@@ -6,7 +6,7 @@ SCALE_DB ?= data/scale.db
 HOST ?= 127.0.0.1
 PORT ?= 8000
 
-.PHONY: setup seed run test verify seed-scale test-scale access-review
+.PHONY: setup seed run demo test verify seed-scale test-scale access-review
 
 $(PY): requirements.txt
 	$(PYTHON) -m venv $(VENV)
@@ -22,6 +22,9 @@ seed: $(PY)
 
 run: $(PY)
 	APP_DB=$(APP_DB) $(PY) -m uvicorn app.main:create_app --factory --host $(HOST) --port $(PORT)
+
+demo: $(PY)
+	LEDGERLINE_DEMO_LOGIN=1 APP_DB=$(APP_DB) $(PY) -m uvicorn app.main:create_app --factory --host $(HOST) --port $(PORT)
 
 test: $(PY)
 	$(PY) -m pytest -q

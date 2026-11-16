@@ -497,3 +497,10 @@ make test-scale                         exit 0  4 passed, 1 warning in 3.43s
 
 **Totals:**
 - Active work: 41 (first build) + 14 (feedback coding) + 27 (BUILD_SPEC_2) + 12 (BUILD_SPEC_3) = 94 minutes. The prototype-setup minutes after 01:40 are not recorded and are not included.
+
+## Demo sign-in (user request after BUILD_SPEC_3)
+
+- Start: 2026-11-16 05:14:27 UTC
+- End: 2026-11-16 05:19:17 UTC
+- Added opt-in one-click login forms generated from active demo users, and a demo-mode switch-user control.
+- Added `make demo`, documented its synthetic-data-only use, and added tests for flag behavior, role navigation, logout and deactivation.

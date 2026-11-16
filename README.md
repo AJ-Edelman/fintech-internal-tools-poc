@@ -31,9 +31,10 @@ Python 3.11 and `make`. `make` looks for `python3.11`, then a pyenv 3.11, then `
 
 ```
 make setup     # create .venv, install requirements, apply migrations to data/app.db
-make seed      # 20 customers, 40 charges, 8 demo users
+make seed      # 20 customers, 40 charges, 9 demo users
 make verify    # tests, then the stop-and-restart check
 make run       # http://127.0.0.1:8000/login
+make demo      # one-click sign-in as each demo user; never enable it outside a demo
 ```
 
 Other targets: `make test`, `make seed-scale` (50,000 refunds in `data/scale.db`), `make test-scale`,
@@ -164,6 +165,7 @@ it changed was `app/main.py`.
 ## Limitations
 
 - No real SSO or MFA. Login is a stub with one shared demo password.
+- Demo sign-in posts the shared demo password from the page, so it is for synthetic demo data only and is off unless `LEDGERLINE_DEMO_LOGIN=1`.
 - No CSRF tokens.
 - One admin can still make every settings and access change alone; there is no second approver.
   Changes that weaken a control (KYC requirement, maximum refund age, a user's roles, region or active

@@ -21,6 +21,7 @@
     <div class="me">
       <span class="avatar">{{ user.username[:2] }}</span>
       <span class="who"><b>{{ user.username }}</b><span>{{ user.roles | map("role_label") | join(", ") or "No roles" }}</span></span>
+      {% if demo_login %}<form method="post" action="/logout"><button class="btn sm ghost" type="submit" title="Switch user">Switch user</button></form>{% endif %}
       <form method="post" action="/logout"><button class="btn sm ghost" type="submit" title="Log out">Log out</button></form>
     </div>
   </aside>

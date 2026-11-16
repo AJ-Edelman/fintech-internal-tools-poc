@@ -90,10 +90,17 @@ details.raw pre{background:var(--bg);border:1px solid var(--line);border-radius:
 .checks{display:flex;flex-wrap:wrap;gap:6px 14px}.checks label{display:flex;gap:6px;align-items:center;font-weight:400;margin:0}
 .login{min-height:100vh;display:grid;place-items:center;padding:24px}
 .login .card{width:400px;max-width:100%}
+.demo-groups{display:grid;gap:16px;margin-top:16px}
+.demo-group h2{font-size:12px;color:var(--muted);margin:0 0 7px}
+.demo-user-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.demo-user-list form{margin:0}
+.btn.demo-user{width:100%;justify-content:flex-start;white-space:normal;text-align:left;padding:8px 10px}
+.demo-user-meta{display:block;color:var(--muted);font-size:11px;font-weight:400}
 .setting{display:grid;grid-template-columns:1fr 340px;gap:24px;padding:20px;border-bottom:1px solid var(--line)}
 .setting:last-child{border-bottom:0}.setting p{margin:4px 0 0;color:var(--muted);font-size:13px}
 .setting form{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}.setting form .grow{flex:1}
 @media(max-width:900px){.setting{grid-template-columns:1fr}.shell{flex-direction:column}.side{width:auto;height:auto;position:static;border-right:0;border-bottom:1px solid var(--border)}.nav{display:flex;flex-wrap:wrap;gap:2px 4px;padding:0 12px 8px}.nav h6{display:none}.main{padding:20px}}
+@media(max-width:500px){.demo-user-list{grid-template-columns:1fr}}
 .switch{display:inline-flex;align-items:center;gap:8px;font-weight:500}
 .inline-form{display:inline}
 </style>

@@ -1,4 +1,5 @@
 """Shared web plumbing: app factory pieces, templates, error rendering, foundation routes."""
+import os
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
@@ -7,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, StrictBool, StrictInt
+from sqlalchemy import text
 
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -43,6 +45,10 @@ templates.env.filters["role_label"] = role_label
 templates.env.filters["words"] = lambda value: str(value).replace("_", " ").capitalize()
 templates.env.filters["describe"] = audit.describe
 templates.env.filters["ucfirst"] = lambda value: value[:1].upper() + value[1:]
+
+
+def demo_login_enabled() -> bool:
+    return os.environ.get("LEDGERLINE_DEMO_LOGIN") == "1"
 
 
 def to_cents(amount: str, what: str = "amount") -> int:
@@ -101,9 +107,50 @@ def page(request: Request, name: str, user: User | None, status_code: int = 200,
         sections.setdefault(section, []).append((href, label, href == active))
     return templates.TemplateResponse(
         request, name,
-        {"user": user, "nav": sections, "qs": lambda **changes: _qs(request, **changes), **ctx},
+        {"user": user, "nav": sections, "qs": lambda **changes: _qs(request, **changes),
+         **ctx, "demo_login": demo_login_enabled()},
         status_code=status_code,
     )
+
+
+def _demo_accounts(request: Request) -> list[tuple[str, list[dict[str, str]]]]:
+    from app.seed import DEMO_USERS
+
+    group_by_permission = {
+        "refund:read": "Refunds",
+        "kyc:review": "KYC review",
+        "limit:read": "Account limits",
+        "user:manage": "Admin",
+    }
+    groups = {label: [] for label in ("Refunds", "KYC review", "Account limits", "Admin")}
+    with request.app.state.engine.begin() as conn:
+        active = {
+            row.username
+            for row in conn.execute(text("SELECT username FROM app_user WHERE active = 1"))
+        }
+    for username, roles, region in DEMO_USERS:
+        if username not in active:
+            continue
+        role = roles[0]
+        tool_label = next(
+            label for permission, label in group_by_permission.items()
+            if permission in ROLE_PERMISSIONS[role]
+        )
+        groups[tool_label].append({
+            "username": username,
+            "role_label": role_label(role),
+            "region": region,
+        })
+    return [(label, groups[label]) for label in groups]
+
+
+def _demo_login_context(request: Request) -> dict:
+    from app.seed import DEMO_PASSWORD
+
+    return {
+        "demo_accounts": _demo_accounts(request),
+        "demo_password": DEMO_PASSWORD,
+    }
 
 
 def tx(request: Request):
@@ -149,7 +196,8 @@ def _safe_next(target: str | None) -> str:
 
 @router.get("/login", response_class=HTMLResponse)
 def login_form(request: Request, next: str = "/"):
-    return page(request, "login.html", None, next=_safe_next(next), error=None)
+    return page(request, "login.html", None, next=_safe_next(next), error=None,
+                **_demo_login_context(request))
 
 
 @router.post("/login")
@@ -159,7 +207,7 @@ def login_submit(request: Request, username: str = Form(""), password: str = For
         token = auth.login(conn, username, password)
     if token is None:
         return page(request, "login.html", None, status_code=401, next=_safe_next(next),
-                    error="Wrong username or password")
+                    error="Wrong username or password", **_demo_login_context(request))
     response = RedirectResponse(_safe_next(next), status_code=303)
     response.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax")
     return response
