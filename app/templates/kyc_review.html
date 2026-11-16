@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_badge, decide_form, history_timeline with context %}
+{% block title %}KYC review: {{ customer.name }}{% endblock %}
+{% block body %}
+<div class="head"><div><div class="crumb"><a href="/kyc/queue">KYC queue</a> / #{{ customer.id }}</div>
+<h1>{{ customer.name }} <span style="vertical-align:middle">{{ status_badge(customer.kyc_status) }}</span></h1><p>KYC review for customer #{{ customer.id }}</p></div></div>
+{% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+{% if customer.pii_revealed %}<div class="alert note">Full SSN and bank account are shown. This view was written to the audit log.</div>{% endif %}
+<div class="grid g3">
+  <div>
+    {% if customer.kyc_status == "pending" %}
+    <div class="card"><div class="card-h"><div><h2>Decision</h2><p>Choose a reason, then approve or reject.</p></div></div><div class="card-b">
+      {{ decide_form("/kyc/" ~ customer.id ~ "/decision", approve_reasons, reject_reasons) }}</div></div>
+    {% endif %}
+    <div class="card"><div class="card-h"><h2>Audit history</h2></div><div class="card-b">{{ history_timeline(history) }}</div></div>
+  </div>
+  <div class="card"><div class="card-h"><h2>Identity</h2></div><div class="card-b">
+    <dl class="kv" style="grid-template-columns:110px 1fr"><dt>Name</dt><dd>{{ customer.name }}</dd><dt>Email</dt><dd>{{ customer.email }}</dd>
+    <dt>SSN</dt><dd class="mono">{{ customer.ssn }}</dd><dt>Bank account</dt><dd class="mono">{{ customer.bank_account }}</dd>
+    <dt>KYC status</dt><dd>{{ status_badge(customer.kyc_status) }}</dd></dl>
+  </div></div>
+</div>
+{% endblock %}

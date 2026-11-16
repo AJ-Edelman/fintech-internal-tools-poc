@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_ui.html" import reason_picker, status_badge with context %}
+{% block title %}Request refund{% endblock %}
+{% block body %}
+{% set max_cents = charge.remaining_cents if charge.remaining_cents > 0 else 0 %}
+<div class="head"><div><div class="crumb"><a href="/refunds">Refunds</a> / <a href="/refunds/new">Request refund</a> / Charge #{{ charge.id }}</div>
+<h1>Request a refund</h1><p>Step 2 of 2: amount and reason.</p></div></div>
+<div class="grid g3">
+  <div class="card"><div class="card-b">
+    {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+    {% if rules.cutoff and charge.created_at < rules.cutoff %}<div class="alert note">This charge is older than {{ rules.max_age_days }} days, so it can no longer be refunded.</div>{% endif %}
+    {% if rules.requires_kyc and charge.kyc_status != "approved" %}<div class="alert note">This customer's KYC is {{ charge.kyc_status }}. Refunds can only be requested for customers whose KYC is approved.</div>{% endif %}
+    <form method="post" action="/refunds/new">
+      <input type="hidden" name="charge_id" value="{{ charge.id }}">
+      <div class="field"><label for="amount">Refund amount requested (Max {{ max_cents | dollars }})</label>
+        <input id="amount" name="amount" inputmode="decimal" value="{{ values.amount or '' }}" placeholder="0.00" data-max="{{ max_cents }}" required>
+        <div class="hint">In US dollars. Up to {{ limit_cents | dollars }} in total on this charge is approved automatically; more goes to an approver.</div></div>
+      <div class="field"><label>Reason</label>
+        <div class="decide">{{ reason_picker("refund", reasons, values.reason_choice or "", values.reason_other or "") }}</div>
+        <div class="hint">Choose a common reason, or Other to type one.</div></div>
+      <div style="display:flex;gap:8px"><button class="btn primary" type="submit">Submit request</button><a class="btn" href="/refunds/new">Choose another charge</a></div>
+    </form>
+  </div></div>
+  <div class="card"><div class="card-h"><h2>Charge #{{ charge.id }}</h2>{{ status_badge(charge.kyc_status) }}</div><div class="card-b">
+    <dl class="kv" style="grid-template-columns:140px 1fr">
+      <dt>Customer</dt><dd><a href="/customers/{{ charge.customer_id }}">{{ charge.customer_name }}</a></dd>
+      <dt>Date</dt><dd>{{ charge.created_at | day }}</dd>
+      <dt>Charge amount</dt><dd>{{ charge.amount_cents | dollars }}</dd>
+      <dt>Refunded or pending</dt><dd>{{ charge.committed_cents | dollars }}</dd>
+      <dt>Refundable</dt><dd class="strong">{{ max_cents | dollars }}</dd>
+    </dl>
+  </div></div>
+</div>
+<script>
+(function () {
+  var input = document.getElementById("amount"), max = Number(input.dataset.max);
+  input.addEventListener("input", function () {
+    var cents = Math.round(Number(input.value.replace(/[$,]/g, "")) * 100);
+    input.setCustomValidity(cents > max ? "The most you can request on this charge is $" + (max / 100).toLocaleString("en-US", {minimumFractionDigits: 2}) : "");
+  });
+})();
+</script>
+{% endblock %}

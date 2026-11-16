@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Request limit{% endblock %}
+{% block body %}
+<div class="head"><div><div class="crumb"><a href="/limits">Limit overrides</a> / Request</div><h1>Request a higher daily limit</h1>
+<p>An approver must decide every request. The customer's KYC must be approved.</p></div></div>
+<div class="card" style="max-width:620px"><div class="card-b">
+  {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+  <form method="post" action="/limits/new">
+    <div class="field"><label for="cid">Customer ID</label><input id="cid" name="customer_id" value="{{ values.customer_id or '' }}" inputmode="numeric" required>
+      <div class="hint">{% if values.customer %}{{ values.customer.name }}, current limit {{ values.customer.daily_limit_cents | dollars }}.{% else %}Find it on <a href="/customers">Customers</a>.{% endif %}</div></div>
+    <div class="field"><label for="amt">New daily limit (Max {{ max_cents | dollars }})</label><input id="amt" name="amount" value="{{ values.amount or '' }}" inputmode="decimal" placeholder="0.00" required>
+      <div class="hint">In US dollars. Must be above the current limit.</div></div>
+    <div class="field"><label for="rsn">Reason</label><input id="rsn" name="reason" value="{{ values.reason or '' }}" required maxlength="500"></div>
+    <button class="btn primary" type="submit">Submit request</button>
+  </form>
+</div></div>
+{% endblock %}

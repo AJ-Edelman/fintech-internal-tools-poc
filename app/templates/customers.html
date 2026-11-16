@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_ui.html" import sort_th, pager, search, status_badge with context %}
+{% block title %}Customers{% endblock %}
+{% block body %}
+<div class="head"><div><h1>Customers</h1><p>SSN and bank account are masked in lists{% if user.can("pii:read") %}; opening a customer shows them in full and is audited{% endif %}.</p></div></div>
+<div class="card">
+  <div class="toolbar">
+    <div class="chips"><a class="chip {{ 'on' if not result.kyc_status }}" href="{{ qs(kyc_status=None) }}">All</a>
+    {% for s in statuses %}<a class="chip {{ 'on' if result.kyc_status == s }}" href="{{ qs(kyc_status=s) }}">KYC {{ s }}</a>{% endfor %}</div>
+    <span class="grow"></span>
+    {{ search(result, "Search name, email, ID or last 4 digits", {"kyc_status": result.kyc_status}) }}
+  </div>
+  <table class="t">
+    <thead><tr>{{ sort_th("ID", "id", result) }}{{ sort_th("Name", "name", result) }}{{ sort_th("Email", "email", result) }}<th>SSN</th><th>Bank account</th>{{ sort_th("KYC", "kyc_status", result) }}</tr></thead>
+    <tbody>
+    {% for c in result["items"] %}
+    <tr><td class="muted">#{{ c.id }}</td><td><a class="strong" href="/customers/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.email }}</td><td class="mono">{{ c.ssn }}</td><td class="mono">{{ c.bank_account }}</td><td>{{ status_badge(c.kyc_status) }}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty">No customers match.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
+{% endblock %}
