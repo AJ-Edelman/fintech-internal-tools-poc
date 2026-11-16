@@ -45,7 +45,7 @@ Python 3.11, FastAPI, SQLAlchemy, SQLite, Jinja2 pages (tables and forms only), 
 ## Tool 1: Refunds (migration 001; tag `tool1-done` on a commit where `make test` passes)
 - A `refund_agent` requests a refund on a charge, with a positive amount in cents and a reason.
 - **Cap:** pending plus approved refunds on a charge may never exceed the charge amount. The database enforces this, so a direct SQL insert is rejected too.
-- **Threshold:** a request is approved automatically only if it keeps the charge's pending plus approved total at or below $500. The audit event records `system` as the approver and the agent as the requester. Otherwise it is `pending_approval`.
+- **Threshold:** a request is approved automatically only if it keeps the charge's pending plus approved total at or below `AUTO_APPROVE_LIMIT_CENTS` (one setting, default 50000, read in one place). The audit event records `system` as the approver and the agent as the requester. Otherwise it is `pending_approval`.
 - A `refund_approver` approves or rejects a pending request, with a reason. Nobody can decide a request they created.
 - Pages: refund list (paged on the server, filter by status), request form, approval queue, and a refund detail page showing its audit history.
 - API: `GET /api/refunds?status=&page=&page_size=` returns items ordered by id, plus the total.
@@ -66,7 +66,7 @@ Each is an automated test through HTTP unless marked. **[T1]** must pass at `too
 | # | Criterion |
 |---|---|
 | AC1 | [T1] From a fresh clone, `make setup && make seed && make verify` passes, and `make run` serves the login page |
-| AC2 | [T1] An agent requests $750 → `pending_approval` → an approver approves → `approved`, with an audit event per step. $500.00 on a fresh charge is approved by `system`; $500.01 is pending |
+| AC2 | [T1] An agent requests $750 → `pending_approval` → an approver approves → `approved`, with an audit event per step. $500.00 on a fresh charge is approved by `system`; $500.01 is pending. With the limit set to another value, the boundary moves with it |
 | AC3 | [T1] (process) A refund and its audit events survive stopping and restarting the server |
 | AC4 | [T1] A test user holding both refund roles cannot approve their own request: 403, state unchanged, no approval audit event |
 | AC5 | [T1] An agent calling the approve endpoint gets 403. At `tool2-done`, a refund agent calling the KYC decision endpoint also gets 403 |
@@ -81,13 +81,14 @@ Each is an automated test through HTTP unless marked. **[T1]** must pass at `too
 | AC14 | (migration) A database at 001 with customers, refunds and audit events upgrades to 002 with every row intact |
 
 ## README (required)
-What it does, prerequisites, clean-start steps, demo users, a short demo walkthrough, which test covers each AC, how to add tool N (the steps tool 2 followed), and limitations. Limitations must include: no real SSO or MFA; no CSRF tokens; no production hosting, encryption at rest or backups; no retention or disposal; the audit log is append-only for the app but not tamper-proof against whoever controls the database file; no KYC claim/lock, escalation or documents; no data migrated from an existing platform; the scale test shows correct paging, not performance.
+What it does, prerequisites, clean-start steps, demo users, a short demo walkthrough, which test covers each AC, how to add tool N (the steps tool 2 followed), and limitations. Limitations must include: no real SSO or MFA; no CSRF tokens; the auto-approve limit changes only through a code change, not a screen; no production hosting, encryption at rest or backups; no retention or disposal; the audit log is append-only for the app but not tamper-proof against whoever controls the database file; no KYC claim/lock, escalation or documents; no data migrated from an existing platform; the scale test shows correct paging, not performance.
 
 ## Build log (`docs/BUILD_LOG.md`, append as you go)
 - Per work block: start and end time, what was asked, what you did, failures and rework.
 - Every tool 1 file changed during tool 2, labelled: expected rule change, setup-data change, foundation change, or assertion change (with the reason).
 - At the end: elapsed time for each tool, `git diff --stat tool1-done tool2-done`, ACUs if visible, and each AC as passing, failing or not run.
+- Anything given to a subagent, and any rework its output needed.
 - Record only what you observed. Don't estimate missing numbers, and don't mark anything as verified by a human.
 
 ## Time limit: 120 minutes, hard
-Stop feature work at minute 90 and use the rest to verify, push and write up. At 120, stop and report the real status. If tool 1 isn't passing by minute 70, skip tool 2 and say so. Cut first: the 50,000-row seed (keep the small paging test), then `make access-review`. Never cut a permission check, the cap, the threshold, audit rules or the cross-tool rule without logging it.
+You may use subagents for pieces that touch separate files (for example the scale seed, CI, the README). Don't start tool 2 before `tool1-done` is tagged. Stop feature work at minute 90 and use the rest to verify, push and write up. At 120, stop and report the real status. If tool 1 isn't passing by minute 70, skip tool 2 and say so. Cut first: the 50,000-row seed (keep the small paging test), then `make access-review`. Never cut a permission check, the cap, the threshold, audit rules or the cross-tool rule without logging it.
