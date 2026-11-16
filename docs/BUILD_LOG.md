@@ -359,3 +359,22 @@ final reports below.
 ## Stage 3: tool 3, account limit overrides (me alone)
 
 - Start: 02:33:12 UTC (spec minute 17), from merged commit `1249e60`.
+- First passing run: 02:35:18 UTC (2 minutes after start). Tagged `tool3-done` on `6840ea3`.
+- `make verify`: `300 passed, 4 skipped, 1 warning in 59.34s`; `AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 67091)`.
+- `make seed-scale`: `seeded 50000 refunds into data/scale.db: {'approved': 30000, 'pending_approval': 12500, 'rejected': 7500}`; `make test-scale`: `4 passed, 1 warning in 3.69s`.
+- Lines added per directory: `app/limits` 314, `app/templates` 78, `tests` 110, `app` (main.py) 2.
+- Foundation files changed for tool 3: only `app/main.py` (one import and the router added to `TOOL_ROUTERS`). The workflow engine, lists, scope, connectors, permissions (roles were declared in stage 0) and migration 004 (stage 0) were used unchanged.
+- `git diff --stat 1249e60 6840ea3`:
+
+```
+ app/limits/__init__.py          |   0
+ app/limits/routes.py            | 181 ++++++++++++++++++++++++++++++++++++++++
+ app/limits/workflow.py          | 133 +++++++++++++++++++++++++++++
+ app/main.py                     |   3 +-
+ app/templates/limit_detail.html |  34 ++++++++
+ app/templates/limit_form.html   |  17 ++++
+ app/templates/limits_list.html  |  27 ++++++
+ docs/BUILD_LOG.md               |   4 +
+ tests/test_limits.py            | 110 ++++++++++++++++++++++++
+ 9 files changed, 508 insertions(+), 1 deletion(-)
+```
