@@ -45,7 +45,7 @@ Python 3.11, FastAPI, SQLAlchemy, SQLite, Jinja2 pages (tables and forms only), 
 ## Tool 1: Refunds (migration 001; tag `tool1-done` on a commit where `make test` passes)
 - A `refund_agent` requests a refund on a charge, with a positive amount in cents and a reason.
 - **Cap:** pending plus approved refunds on a charge may never exceed the charge amount. The database enforces this, so a direct SQL insert is rejected too.
-- **Threshold:** a request is approved automatically only if it keeps the charge's pending plus approved total at or below the auto-approve limit. The limit is a stored setting (default 50000 cents) that a caller with `settings:write` can change, with a reason; each change writes an audit event with the old and new value. The audit event records `system` as the approver and the agent as the requester. Otherwise it is `pending_approval`.
+- **Threshold:** a request is approved automatically only if it keeps the charge's pending plus approved total at or below the auto-approve limit. The limit is a stored setting (default 50000 cents) that a caller with `settings:write` can change, with a reason, to any value from 0 up to a hard maximum of 75000 cents; each change writes an audit event with the old and new value. The audit event records `system` as the approver and the agent as the requester. Otherwise it is `pending_approval`.
 - A `refund_approver` approves or rejects a pending request, with a reason. Nobody can decide a request they created. This rule covers human decisions, not the automatic approval.
 - Pages: refund list (paged on the server, filter by status), request form, approval queue, and a refund detail page showing its audit history.
 - API: `GET /api/refunds?status=&page=&page_size=` returns items ordered by id, plus the total.
@@ -66,7 +66,7 @@ Each is an automated test through HTTP unless marked. **[T1]** must pass at `too
 | # | Criterion |
 |---|---|
 | AC1 | [T1] From a fresh clone, `make setup && make seed && make verify` passes, and `make run` serves the login page |
-| AC2 | [T1] An agent requests $750 → `pending_approval` → an approver approves → `approved`, with an audit event per step. $500.00 on a fresh charge is approved by `system`; $500.01 is pending. After an admin changes the limit, the boundary moves with it and the change is audited; a non-admin changing it gets 403 |
+| AC2 | [T1] An agent requests $750 → `pending_approval` → an approver approves → `approved`, with an audit event per step. $500.00 on a fresh charge is approved by `system`; $500.01 is pending. After an admin changes the limit, the boundary moves with it and the change is audited; a non-admin changing it gets 403; a value above 75000 gets 422 |
 | AC3 | [T1] (process) A refund and its audit events survive stopping and restarting the server |
 | AC4 | [T1] A user holding both refund roles (created by the test, not in the demo seed) cannot approve their own request: 403, state unchanged, no approval audit event |
 | AC5 | [T1] An agent calling the approve endpoint gets 403. At `tool2-done`, a refund agent calling the KYC decision endpoint also gets 403 |
@@ -81,7 +81,7 @@ Each is an automated test through HTTP unless marked. **[T1]** must pass at `too
 | AC14 | (migration) A database at 001 with customers, refunds and audit events upgrades to 002 with every row intact |
 
 ## README (required)
-What it does, prerequisites, clean-start steps, demo users, a short demo walkthrough, which test covers each AC, how to add tool N (the steps tool 2 followed), and limitations. Limitations must include: no real SSO or MFA; no CSRF tokens; one admin can change the auto-approve limit without a second approver; no production hosting, encryption at rest or backups; no retention or disposal; the audit log is append-only for the app but not tamper-proof against whoever controls the database file; no KYC claim/lock, escalation or documents; no data migrated from an existing platform; the scale test shows correct paging, not performance.
+What it does, prerequisites, clean-start steps, demo users, a short demo walkthrough, which test covers each AC, how to add tool N (the steps tool 2 followed), and limitations. Limitations must include: no real SSO or MFA; no CSRF tokens; one admin can change the auto-approve limit (up to $750) without a second approver; no production hosting, encryption at rest or backups; no retention or disposal; the audit log is append-only for the app but not tamper-proof against whoever controls the database file; no KYC claim/lock, escalation or documents; no data migrated from an existing platform; the scale test shows correct paging, not performance.
 
 ## Build log (`docs/BUILD_LOG.md`, append as you go)
 - Per work block: start and end time, what was asked, what you did, failures and rework.
