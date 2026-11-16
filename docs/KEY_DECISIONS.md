@@ -1,45 +1,48 @@
 # Key decisions
 
-**The question I chose to answer.** The VP asked "can Devin build these tools?" I thought that was the
-easy part and the wrong test. What the client
-pays $250k for is what sits under the screens: shared data, server-side permissions, approvals, audit,
-and someone else running it. So I scoped the prototype to test one thing the decision turns on: once
-that layer exists in code, what does the next tool cost, and what does the client now own?
+**How I approached the question.** The VP asked whether the team could build its tools with Devin, save
+the $250k and gain control. I started neutral, with no default to "stay" or "build", and split the ask
+into two questions with different economics: replacing three live apps (migration, parallel running,
+retraining) and building ten new ones (greenfield). That gave three paths: stay, build selected new
+tools, replace everything. I also compared like with like. Power Apps is screens plus a data platform,
+workflow, identity, governance and a runtime Microsoft operates. Devin writes code; it does not host or
+operate anything. So "can Devin build a refunds screen" was the easy and wrong test. The test that
+matters is what the next tool costs once that layer exists in code, and what the client then owns.
+
+**Assumptions I worked from, and what they did to the design.**
+- *The $250k is real, but the avoidable share is unknown.* Research showed Premium is per user with unlimited apps, which refuted my starting assumption that ten more tools raise the bill. The prototype therefore could not prove a saving, so I designed it to produce cost inputs (time, review effort, reuse), not a savings figure.
+- *Internal-tool users are operations staff, not engineers,* and they may build their own apps today. Code moves that work to engineers. I could not test this and say so.
+- *The client already has cloud, sign-in and CI.* If not, the build case is much weaker.
+
+**What "scale" means here.** "Ten more tools" hides five questions: more tools, more users, delivery
+speed, data volume, and governance across many apps. Two hours could speak to the first and part of the
+fourth. So I built tools on a shared foundation and measured the marginal one, and added a 50,000-record
+paging check. More users and governance are named as not shown.
 
 **Why this scope.** I ranked what the platform provides into three tiers and set a rule before choosing:
-the prototype must exercise every tier 1 item, stub tier 2 openly, and name tier 3 as not shown. Four
-scopes were on the table.
+exercise every tier 1 item, stub tier 2 openly, name tier 3 as not shown.
 
-| Option | Why I rejected or chose it |
+| Option | Why rejected or chosen |
 |---|---|
-| One polished tool (KYC queue) | The best demo, but it shows nothing about reuse, and the client's question is about 13 tools |
-| Refunds + feature flags | Two tools, but they share no business data, so the shared-model claim would be asserted, not shown |
-| A config-driven tool engine | Strongest scaling story on paper; in two hours it becomes a worse rebuild of Power Apps |
-| **Refunds + a light KYC review** | The smallest pair with shared customer data and a rule that crosses tools (no refund until KYC is approved) |
+| One polished tool (KYC queue) | Best demo; shows nothing about reuse |
+| Refunds + feature flags | The tools share no business data, so the shared-model claim would be asserted |
+| A config-driven tool engine | Best scaling story on paper; in two hours, a worse rebuild of Power Apps |
+| **Refunds + a light KYC review** | Smallest pair with shared customer data and a rule that crosses tools |
 
-The price was depth: KYC has no claim/lock, escalation or documents, and the screens are plain tables
-and forms. The third tool, limit
-overrides, is one the client does not have. I added it last and timed it alone, because the first two
-tools shaped the foundation and so could not fairly test it.
+The price was depth: no KYC claim/lock, escalation or documents, and plain screens. The third tool,
+limit overrides, is one the client does not have. I timed it alone, because the first two tools shaped
+the foundation and could not fairly test it.
 
 **Architecture tradeoffs.**
-- *Foundation first, tools thin.* The per-tool cost is the number that decides build versus buy. The cost is coupling: a foundation change touches every tool.
-- *Critical rules in the database, not only the application.* Self-approval, the KYC gate, the limit cap and the append-only audit log are triggers. A rule in one tool's code does not bind the next tool or a script. Triggers are harder to read and change, so only rules whose failure is a control failure went there.
-- *Workflow as declared states and guards, not hand-written per tool.* This is what made tool 3 cheap. It will fit unusual processes badly, and I did not test one.
-- *SQLite, stubbed login, fake payment services.* I spent the two hours on controls, not infrastructure. That is the largest hole in the evidence: hosting, SSO and real integrations are where a real build's cost sits.
+- *Foundation first, tools thin.* Per-tool cost decides build versus buy. The cost is coupling: a foundation change touches every tool.
+- *Critical rules as database triggers* (self-approval, KYC gate, limit cap, append-only audit), so they bind every tool and script. Triggers are harder to change, so only control failures went there.
+- *Workflow declared as states and guards.* This made tool 3 cheap; it will fit unusual processes badly, which I did not test.
+- *SQLite, stubbed login, fake payment services.* Two hours went to controls, not infrastructure. That is the largest hole: hosting, SSO and real integrations are where a real build's cost sits.
+- *Spec first, built in a fresh Devin session, checked by other fresh sessions.* A builder grading itself is not evidence; the checkers caught two SSN leaks the builder's tests passed.
 
-**How I used Devin, and why.** I wrote the spec with numbered acceptance criteria in a planning session
-and gave only the spec to a fresh build session, so the instructions an engineer would need are on the
-page and not hidden in my context. Fresh sessions with no build context checked each milestone, because
-a builder grading its own work is not evidence. That caught two real SSN leaks into the audit log that
-the builder's own tests passed. The cost is that my time moved into writing and reviewing specs, which
-was more than half of the total.
+**Where I was wrong or changed course.** My first spec was met in full and was still too thin to stand in
+for the platform, which was the spec's failure. Devin challenged the admin-set auto-approve limit as a
+one-person control; I kept it with a hard $750 cap. A review found admin changes with no recorded reason.
 
-**Where I was wrong or changed course.**
-- My first spec was met in full and was still too thin to stand in for the platform: no integrations, no record-level access, bare lists. That was my spec's failure, and a second spec fixed it.
-- Devin challenged an admin-set auto-approve limit as a one-person control. I kept it, but added a hard $750 cap enforced in the database.
-- A later review found admin changes that weakened controls with no recorded reason. A third spec closed that.
-
-**What I would not claim from this.** Three synthetic tools show the pattern is feasible and the next
-tool is cheap to write. They do not price tools 4 to 13, production operation, or migration, and they
-cannot match non-engineers building their own tools.
+**What I would not claim.** Three synthetic tools show feasibility and a cheap next tool. They do not
+price tools 4 to 13, production operation or migration.
