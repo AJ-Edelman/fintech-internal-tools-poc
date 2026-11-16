@@ -96,7 +96,8 @@ def run(conn, spec: ListSpec, user, params: Mapping[str, str]) -> dict:
                       search=_search_exprs(spec), q=params.get("q"), sorts=sorts,
                       default_sort=default_sort, default_dir=default_dir, tiebreak=spec.tiebreak,
                       sort=params.get("sort") or None, direction=params.get("dir") or None,
-                      page=page, page_size=page_size)
+                      page=page, page_size=page_size,
+                      offset=int(params["offset"]) if params.get("offset") not in (None, "") else None)
     if spec.waiting_since:
         for row in result["items"]:
             row["waiting"] = _waiting(row.get("waiting_since"))

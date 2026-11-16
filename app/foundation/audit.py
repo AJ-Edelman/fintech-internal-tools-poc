@@ -5,7 +5,8 @@ from sqlalchemy import text
 
 from .db import utcnow
 from .errors import AppError
-from .listing import run_list
+from . import lists
+from .lists import Column, ListSpec
 from .pii import redact
 
 SYSTEM_ACTOR = "system"
@@ -54,6 +55,20 @@ def recent(conn, limit: int = 100, offset: int = 0) -> list[dict]:
     return [_row(r) for r in rows]
 
 
+AUDIT_LIST = lists.register(ListSpec(
+    name="audit", permission="audit:read", source="audit_event a",
+    columns=(Column("id", "ID", "a.id", sortable=True),
+             Column("when", "When", "a.created_at", sortable=True, kind="date"),
+             Column("actor", "Actor", "a.actor", searchable=True, sortable=True),
+             Column("action", "Action", "a.action", searchable=True, sortable=True),
+             Column("entity", "Entity", "a.entity", searchable=True, sortable=True),
+             Column("entity_id", "Entity ID", "a.entity_id", searchable=True),
+             Column("reason", "Reason", "a.reason", searchable=True),
+             Column("before", "Before", "a.before", searchable=True),
+             Column("after", "After", "a.after", searchable=True)),
+    default_sort="id", default_dir="desc", tiebreak="a.id", extra={"select": "a.*"}))
+
+
 def search(conn, q=None, actor=None, action=None, entity=None, date_from=None, date_to=None,
            sort=None, direction=None, page: int = 1, page_size: int = 50,
            offset: int | None = None) -> dict:
@@ -68,13 +83,11 @@ def search(conn, q=None, actor=None, action=None, entity=None, date_from=None, d
                 raise AppError(422, f"{name} must be a date like 2026-01-31")
             where.append(f"substr(a.created_at, 1, 10) {op} :{name}")
             params[name] = value
-    result = run_list(
-        conn, select="a.*", frm="audit_event a", where=where, params=params,
-        search=("a.actor", "a.action", "a.entity", "a.entity_id", "a.reason", "a.before", "a.after"), q=q,
-        sorts={"id": "a.id", "when": "a.created_at", "actor": "a.actor", "action": "a.action",
-               "entity": "a.entity"},
-        default_sort="id", default_dir="desc", tiebreak="a.id", sort=sort, direction=direction,
-        page=page, page_size=page_size, offset=offset)
+    from dataclasses import replace
+    spec = replace(AUDIT_LIST, where=tuple(where), extra={**AUDIT_LIST.extra, "params": params})
+    result = lists.run(conn, spec, None, {k: str(v) for k, v in {
+        "q": q, "sort": sort, "dir": direction, "page": page, "page_size": page_size,
+        "offset": offset}.items() if v not in (None, "")})
     result["items"] = [_row(r) for r in result["items"]]
     result.update(actor=actor or "", action=action or "", entity=entity or "",
                   date_from=date_from or "", date_to=date_to or "")

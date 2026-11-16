@@ -27,10 +27,14 @@ CUSTOMER_LIST = lists.register(ListSpec(
     filters=(Filter("kyc_status", "KYC", "c.kyc_status", tuple((s, s) for s in KYC_STATUSES)),),
     customer_id_expr="c.id", tiebreak="c.id", row_view=customer_view, extra={"select": "c.*"}))
 
+_KYC_SINCE = ("COALESCE((SELECT MIN(a.created_at) FROM audit_event a WHERE a.entity = 'customer' "
+              "AND a.entity_id = CAST(c.id AS TEXT)), "
+              "(SELECT MIN(ch.created_at) FROM charge ch WHERE ch.customer_id = c.id))")
+
 KYC_QUEUE = lists.register(ListSpec(
     name="kyc_queue", permission="kyc:review", source="customer c",
     columns=CUSTOMER_LIST.columns, filters=CUSTOMER_LIST.filters, customer_id_expr="c.id",
-    tiebreak="c.id", waiting_since="c.created_at", row_view=customer_view, extra={"select": "c.*"}))
+    tiebreak="c.id", waiting_since=_KYC_SINCE, row_view=customer_view, extra={"select": "c.*"}))
 
 
 def _params(**kw) -> dict:
