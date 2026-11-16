@@ -8,6 +8,7 @@ from typing import Callable
 
 from sqlalchemy import text
 
+from . import connectors, scope
 from .audit import SYSTEM_ACTOR, write_audit
 from .db import utcnow
 from .errors import AppError
@@ -22,6 +23,7 @@ class Transition:
     guards: tuple[Callable, ...] = ()  # guard(conn, row, actor) raises AppError
     actor_column: str | None = None  # column stamped with the actor's name
     audit_extra: Callable | None = None  # audit_extra(row, actor) -> dict merged into "after"
+    sends: tuple["connectors.Outbound", ...] = ()  # messages recorded with this transition
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,7 @@ class Workflow:
     transitions: tuple[Transition, ...]
     audit_columns: tuple[str, ...] = ()  # non-sensitive columns snapshotted at creation
     updated_at_column: str | None = None
+    customer_of: Callable | None = None  # customer_of(conn, row) -> customer id, for region scope
     by_name: dict = field(init=False, compare=False, hash=False)
 
     def __post_init__(self):
@@ -60,10 +63,27 @@ def _authorize(t: Transition, actor) -> None:
         raise AppError(403, f"missing permission {t.permission}")
 
 
+def _check_scope(conn, wf: Workflow, t: Transition, actor, row) -> None:
+    """Out-of-region records are 404 for the permission this transition needs."""
+    if wf.customer_of is None or t.permission is None or getattr(actor, "is_system", False):
+        return
+    customer_id = wf.customer_of(conn, row)
+    if customer_id is not None:
+        scope.check_customer(conn, actor, t.permission, customer_id)
+
+
+def _send(conn, wf: Workflow, t: Transition, entity_id, row: dict, actor, audit_event_id: int) -> None:
+    for out in t.sends:
+        connectors.enqueue(conn, connector=out.connector, kind=out.kind, entity=wf.entity,
+                           entity_id=entity_id, payload=out.payload(row, actor),
+                           audit_event_id=audit_event_id)
+
+
 def create(conn, wf: Workflow, name: str, actor, values: dict, reason: str | None) -> int:
     t = wf.by_name[name]
     assert t.source is None
     _authorize(t, actor)
+    _check_scope(conn, wf, t, actor, values)
     for guard in t.guards:
         guard(conn, values, actor)
     row = dict(values)
@@ -79,8 +99,9 @@ def create(conn, wf: Workflow, name: str, actor, values: dict, reason: str | Non
     after[wf.state_column] = t.target
     if t.audit_extra:
         after.update(t.audit_extra(row, actor))
-    write_audit(conn, actor=actor.username, action=f"{wf.entity}.{t.name}", entity=wf.entity,
-                entity_id=new_id, before=None, after=after, reason=reason)
+    audit_id = write_audit(conn, actor=actor.username, action=f"{wf.entity}.{t.name}",
+                           entity=wf.entity, entity_id=new_id, before=None, after=after, reason=reason)
+    _send(conn, wf, t, new_id, {**row, "id": new_id}, actor, audit_id)
     return new_id
 
 
@@ -94,6 +115,7 @@ def fire(conn, wf: Workflow, name: str, entity_id: int, actor, reason: str | Non
     if row is None:
         raise AppError(404, f"{wf.entity} {entity_id} not found")
     row = dict(row)
+    _check_scope(conn, wf, t, actor, row)
     current = row[wf.state_column]
     if current != t.source:
         raise AppError(409, f"{wf.entity} {entity_id} is {current}, not {t.source}")
@@ -116,7 +138,9 @@ def fire(conn, wf: Workflow, name: str, entity_id: int, actor, reason: str | Non
         after[t.actor_column] = actor.username
     if t.audit_extra:
         after.update(t.audit_extra(row, actor))
-    write_audit(conn, actor=actor.username, action=f"{wf.entity}.{t.name}", entity=wf.entity,
-                entity_id=entity_id, before={wf.state_column: current}, after=after, reason=reason)
+    audit_id = write_audit(conn, actor=actor.username, action=f"{wf.entity}.{t.name}",
+                           entity=wf.entity, entity_id=entity_id, before={wf.state_column: current},
+                           after=after, reason=reason)
     row.update({k: v for k, v in sets.items()})
+    _send(conn, wf, t, entity_id, row, actor, audit_id)
     return row

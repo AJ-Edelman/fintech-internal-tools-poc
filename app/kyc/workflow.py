@@ -13,6 +13,7 @@ KYC_WORKFLOW = Workflow(
     table="customer",
     state_column="kyc_status",
     states=(PENDING, APPROVED, REJECTED),
+    customer_of=lambda conn, row: row["id"],
     transitions=(
         Transition("kyc_approve", PENDING, APPROVED, "kyc:review"),
         Transition("kyc_reject", PENDING, REJECTED, "kyc:review"),

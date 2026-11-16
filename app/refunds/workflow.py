@@ -12,6 +12,7 @@ from app.foundation.pii import redact_text
 from app.foundation import settings
 from app.foundation.listing import run_list
 from app.foundation.settings import get_auto_approve_limit
+from app.foundation.connectors import Outbound
 from app.foundation.workflow import SYSTEM, Transition, Workflow
 
 PENDING, APPROVED, REJECTED = "pending_approval", "approved", "rejected"
@@ -76,6 +77,18 @@ def _auto_approval_audit(row, actor):
     return {"approver": SYSTEM_ACTOR, "requested_by": row["requested_by"]}
 
 
+def refund_customer(conn, row):
+    return conn.execute(text("SELECT customer_id FROM charge WHERE id = :c"),
+                        {"c": row["charge_id"]}).scalar()
+
+
+def _payout(row, actor):
+    return {"refund_id": row["id"], "charge_id": row["charge_id"], "amount_cents": row["amount_cents"],
+            "currency": "USD"}
+
+
+PAYOUT = Outbound("payments", "refund.payout", _payout)
+
 REFUND_WORKFLOW = Workflow(
     entity="refund",
     table="refund",
@@ -83,15 +96,16 @@ REFUND_WORKFLOW = Workflow(
     states=STATUSES,
     audit_columns=("charge_id", "amount_cents", "requested_by"),
     updated_at_column="updated_at",
+    customer_of=refund_customer,
     transitions=(
         Transition("request", None, PENDING, "refund:create",
                    guards=(guard_valid_request, guard_customer_kyc_approved, guard_charge_not_too_old),
                    actor_column="requested_by"),
         Transition("auto_approve", PENDING, APPROVED, None, actor_column="decided_by",
-                   audit_extra=_auto_approval_audit),
+                   audit_extra=_auto_approval_audit, sends=(PAYOUT,)),
         Transition("approve", PENDING, APPROVED, "refund:approve",
                    guards=(guard_not_own_request, guard_customer_kyc_approved),
-                   actor_column="decided_by"),
+                   actor_column="decided_by", sends=(PAYOUT,)),
         Transition("reject", PENDING, REJECTED, "refund:approve", guards=(guard_not_own_request,),
                    actor_column="decided_by"),
     ),

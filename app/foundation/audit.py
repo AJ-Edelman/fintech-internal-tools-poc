@@ -12,8 +12,8 @@ SYSTEM_ACTOR = "system"
 
 
 def write_audit(conn, *, actor: str, action: str, entity: str, entity_id, before=None,
-                after=None, reason: str | None = None) -> None:
-    conn.execute(
+                after=None, reason: str | None = None) -> int:
+    return conn.execute(
         text(
             "INSERT INTO audit_event (actor, action, entity, entity_id, before, after, reason, created_at) "
             "VALUES (:actor, :action, :entity, :entity_id, :before, :after, :reason, :created_at)"
@@ -28,7 +28,7 @@ def write_audit(conn, *, actor: str, action: str, entity: str, entity_id, before
             "reason": None if reason is None else redact(reason),
             "created_at": utcnow(),
         },
-    )
+    ).lastrowid
 
 
 def _row(r) -> dict:

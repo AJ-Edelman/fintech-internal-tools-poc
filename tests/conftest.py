@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from app.foundation import fake_services
 from app.foundation.auth import create_user
 from app.foundation.db import make_engine, migrate
 from app.main import create_app
@@ -46,6 +47,13 @@ def seed_basics(db_path: str) -> None:
             conn.execute(text("UPDATE customer SET kyc_status = 'approved' WHERE id = 1"))
             conn.execute(text("UPDATE customer SET kyc_status = 'rejected' WHERE id = 3"))
     engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _reset_fake_services():
+    fake_services.reset_all()
+    yield
+    fake_services.reset_all()
 
 
 @pytest.fixture

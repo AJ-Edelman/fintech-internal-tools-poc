@@ -2,7 +2,7 @@
 import hashlib
 import hmac
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from fastapi import Request
 from sqlalchemy import text
@@ -31,6 +31,8 @@ class User:
     roles: tuple[str, ...]
     permissions: frozenset[str]
     is_system: bool = False
+    # permission -> frozenset of "US", "EU", "ALL" (region scope; worker C fills it)
+    scopes: dict = field(default_factory=dict, compare=False, hash=False)
 
     def can(self, permission: str) -> bool:
         return permission in self.permissions
