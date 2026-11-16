@@ -28,7 +28,7 @@ CUSTOMER_LIST = lists.register(ListSpec(
     customer_id_expr="c.id", tiebreak="c.id", row_view=customer_view, extra={"select": "c.*"}))
 
 _KYC_SINCE = ("COALESCE((SELECT MIN(a.created_at) FROM audit_event a WHERE a.entity = 'customer' "
-              "AND a.entity_id = CAST(c.id AS TEXT)), "
+              "AND a.entity_id = CAST(c.id AS TEXT) AND a.action <> 'customer.pii_view'), "
               "(SELECT MIN(ch.created_at) FROM charge ch WHERE ch.customer_id = c.id))")
 
 KYC_QUEUE = lists.register(ListSpec(
