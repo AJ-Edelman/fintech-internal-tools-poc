@@ -15,22 +15,24 @@
     <span class="grow"></span>{{ search(result, "Search username or role", {"role": result.role, "status": result.status}) }}
   </div>
   <table class="t">
-    <thead><tr>{{ sort_th("User", "username", result) }}<th>Role</th><th>Can</th>{{ sort_th("Status", "status", result) }}{% if user.can("user:manage") %}<th style="text-align:right">Change access</th>{% endif %}</tr></thead>
+    <thead><tr>{{ sort_th("User", "username", result) }}<th>Role</th><th>Region</th><th>Can</th>{{ sort_th("Status", "status", result) }}{% if user.can("user:manage") %}<th style="text-align:right">Change access</th>{% endif %}</tr></thead>
     <tbody>
     {% for u in result["items"] %}
     <tr><td><div style="display:flex;gap:10px;align-items:center"><span class="avatar">{{ u.username[:2] }}</span><span class="strong">{{ u.username }}</span></div></td>
       <td>{% for label in u.role_labels %}<span class="tag">{{ label }}</span>{% else %}<span class="muted">No role</span>{% endfor %}</td>
+      <td>{% for r in u.roles %}<span class="tag" title="{{ role_labels[r] }}">{{ u.regions[r] }}</span>{% else %}<span class="muted">-</span>{% endfor %}</td>
       <td class="small wrap">{{ u.can | join("; ") or "Nothing" }}</td>
       <td>{% if u.active %}<span class="badge b-ok">Active</span>{% else %}<span class="badge b-neutral">Inactive</span>{% endif %}</td>
       {% if user.can("user:manage") %}<td>{% if u.id == user.id %}<div class="small muted" style="text-align:right">This is you</div>{% else %}
         <div class="row-actions" style="align-items:center">
           <form method="post" action="/admin/users/{{ u.id }}/roles" class="decide">
             <span class="checks small">{% for r in all_roles %}<label><input type="checkbox" name="role_names" value="{{ r }}" {% if r in u.roles %}checked{% endif %}> {{ role_labels[r] }}</label>{% endfor %}</span>
+            <select name="region" aria-label="Region for {{ u.username }}"><option value="">Keep region</option>{% for g in region_choices %}<option value="{{ g }}">{{ g }}</option>{% endfor %}</select>
             <button class="btn sm" type="submit">Save roles</button></form>
           <form method="post" action="/admin/users/{{ u.id }}/active" class="inline-form"><input type="hidden" name="active" value="{{ '0' if u.active else '1' }}">
             <button class="btn sm {{ 'bad' if u.active }}" type="submit">{{ "Deactivate" if u.active else "Reactivate" }}</button></form>
         </div>{% endif %}</td>{% endif %}</tr>
-    {% else %}<tr><td colspan="5" class="empty">No users match.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6" class="empty">No users match.</td></tr>{% endfor %}
     </tbody>
   </table>
   {{ pager(result) }}
@@ -47,6 +49,7 @@
       <div class="field"><label for="np">Starting password</label><input id="np" name="password" type="password" required minlength="{{ min_password }}"><div class="hint">At least {{ min_password }} characters.</div></div>
       <div class="field"><label>Role</label><div class="checks">{% for r in all_roles %}<label><input type="checkbox" name="role_names" value="{{ r }}"> {{ role_labels[r] }}</label>{% endfor %}</div>
         <div class="hint">Someone with both refund roles still cannot approve their own requests.</div></div>
+      <div class="field"><label for="nr">Region</label><select id="nr" name="region">{% for g in region_choices %}<option value="{{ g }}">{{ g }}</option>{% endfor %}</select><div class="hint">They see and act only on customers in this region. Admin is always all regions.</div></div>
       <button class="btn primary" type="submit">Add user</button>
     </form>
   </div></div>

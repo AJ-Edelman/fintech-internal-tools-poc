@@ -13,12 +13,17 @@ from app.foundation.permissions import permissions_for
 
 DEMO_PASSWORD = "demo"
 DEMO_USERS = [
-    ("agent1", ["refund_agent"]),
-    ("agent2", ["refund_agent"]),
-    ("approver1", ["refund_approver"]),
-    ("kyc1", ["kyc_reviewer"]),
-    ("admin1", ["admin"]),
+    ("agent1", ["refund_agent"], "US"),
+    ("agent2", ["refund_agent"], "EU"),
+    ("approver1", ["refund_approver"], "US"),
+    ("approver2", ["refund_approver"], "EU"),
+    ("kyc1", ["kyc_reviewer"], "US"),
+    ("limits1", ["limits_agent"], "US"),
+    ("limits2", ["limits_approver"], "US"),
+    ("admin1", ["admin"], "ALL"),
 ]
+# Demo customers 11-20 are EU (11 and 12 are KYC-approved and hold charges); 1-10 are US.
+EU_DEMO_CUSTOMERS = range(11, 21)
 FIRST = ["Ada", "Ben", "Cleo", "Dev", "Eve", "Finn", "Gia", "Hal", "Ivy", "Jon",
          "Kai", "Lena", "Milo", "Nora", "Omar", "Pia", "Quinn", "Rae", "Sam", "Tess"]
 LAST = ["Stone", "Rivers", "Field", "Marsh", "Hill", "Lake", "Wood", "Vale", "Frost", "Reed"]
@@ -61,9 +66,14 @@ def has_column(conn, table: str, column: str) -> bool:
     return any(r[1] == column for r in conn.execute(text(f"PRAGMA table_info({table})")))
 
 
-def seed_users(conn) -> None:
-    for username, roles in DEMO_USERS:
-        create_user(conn, username, DEMO_PASSWORD, roles)
+def seed_users(conn, regions: bool = True) -> None:
+    has_region = has_column(conn, "role_assignment", "region")
+    for username, roles, region in DEMO_USERS:
+        if has_region:
+            # The scale seed keeps every customer US and passes regions=False so its users see them all.
+            create_user(conn, username, DEMO_PASSWORD, roles, region if regions else "ALL")
+        else:
+            create_user(conn, username, DEMO_PASSWORD, roles)
 
 
 def seed_customers(conn, count: int = 20) -> list[int]:
@@ -92,6 +102,9 @@ def seed_demo(path: str) -> bool:
                 return False
             seed_users(conn)
             customer_ids = seed_customers(conn, 20)
+            if has_column(conn, "customer", "region"):
+                conn.execute(text(f"UPDATE customer SET region = 'EU' WHERE id IN "
+                                  f"({', '.join(str(i) for i in EU_DEMO_CUSTOMERS)})"))
             now = utcnow()
             # Two charges per customer; the first ten customers also hold one over $1,000.
             for index, customer_id in enumerate(customer_ids):
@@ -114,6 +127,12 @@ def seed_demo(path: str) -> bool:
             request_refund(conn, agent, 5, 120_000, "Cancelled order or subscription")
             request_refund(conn, agent, 7, 64_000, "Billing error or wrong amount")
             request_refund(conn, agent, 9, 98_500, "Product defective or not as described")
+            if has_column(conn, "customer", "region"):
+                # EU pending refunds for approver2 (customer 11 holds charges 21-22, customer 12 holds 23-24).
+                eu_agent = User(id=0, username="agent2", roles=("refund_agent",),
+                                permissions=permissions_for(["refund_agent"]))
+                request_refund(conn, eu_agent, 21, 1_500, "Duplicate charge")
+                request_refund(conn, eu_agent, 23, 1_200, "Billing error or wrong amount")
             write_audit(conn, actor="system", action="seed.demo", entity="database", entity_id="demo",
                         after={"customers": 20, "charges": 40, "users": len(DEMO_USERS)},
                         reason="make seed")
@@ -130,7 +149,7 @@ def seed_scale(path: str, total: int = SCALE_TOTAL, with_users: bool = True) -> 
             if conn.execute(text("SELECT COUNT(*) FROM refund")).scalar():
                 raise SystemExit(f"{path} already holds refunds; delete the file to rebuild it")
             if with_users and not conn.execute(text("SELECT COUNT(*) FROM app_user")).scalar():
-                seed_users(conn)
+                seed_users(conn, regions=False)
             customer_ids = seed_customers(conn, 20)
             if has_column(conn, "customer", "kyc_status"):
                 conn.execute(text("UPDATE customer SET kyc_status = 'approved'"))

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import customers, users
+from . import users
 from .auth import User, require
 from .errors import AppError
 from .listing import MAX_PAGE_SIZE
@@ -21,10 +21,12 @@ class NewUserBody(BaseModel):
     username: str
     password: str
     role_names: list[str] = []
+    region: str = "ALL"
 
 
 class RolesBody(BaseModel):
     role_names: list[str]
+    region: str | None = None
 
 
 class ActiveBody(BaseModel):
@@ -34,7 +36,7 @@ class ActiveBody(BaseModel):
 @router.get("/api/access-review")
 def api_access_review(request: Request, user: User = Depends(require("access_review:read"))):
     with tx(request) as conn:
-        return {"assignments": customers.role_assignments(conn)}
+        return {"assignments": users.role_assignments(conn)}
 
 
 @router.get("/api/users")
@@ -49,14 +51,14 @@ def api_users(request: Request, q: str | None = None, role: str | None = None, s
 @router.post("/api/users", status_code=201)
 def api_add_user(request: Request, body: NewUserBody, user: User = Depends(require("user:manage"))):
     with tx(request) as conn:
-        return users.add_user(conn, user, body.username, body.password, body.role_names)
+        return users.add_user(conn, user, body.username, body.password, body.role_names, body.region)
 
 
 @router.put("/api/users/{user_id}/roles")
 def api_set_roles(request: Request, user_id: int, body: RolesBody,
                   user: User = Depends(require("user:manage"))):
     with tx(request) as conn:
-        return users.set_roles(conn, user, user_id, body.role_names)
+        return users.set_roles(conn, user, user_id, body.role_names, body.region)
 
 
 @router.put("/api/users/{user_id}/active")
@@ -72,7 +74,8 @@ def _access_page(request, user, status_code=200, error=None, saved=None, **filte
         overview = users.role_overview(conn)
     return page(request, "access_review.html", user, status_code=status_code, result=result,
                 overview=overview, role_labels=ROLE_LABELS, all_roles=list(ROLE_PERMISSIONS),
-                error=error, saved=saved, min_password=users.MIN_PASSWORD)
+                error=error, saved=saved, min_password=users.MIN_PASSWORD,
+                region_choices=users.REGION_CHOICES)
 
 
 @router.get("/admin/access-review", response_class=HTMLResponse)
@@ -97,15 +100,17 @@ def _user_action(request, user, action):
 
 @router.post("/admin/users", response_class=HTMLResponse)
 def add_user_submit(request: Request, username: str = Form(""), password: str = Form(""),
-                    role_names: list[str] = Form([]), user: User = Depends(require("user:manage"))):
+                    role_names: list[str] = Form([]), region: str = Form("ALL"),
+                    user: User = Depends(require("user:manage"))):
     return _user_action(request, user,
-                        lambda conn: users.add_user(conn, user, username, password, role_names))
+                        lambda conn: users.add_user(conn, user, username, password, role_names, region))
 
 
 @router.post("/admin/users/{user_id}/roles", response_class=HTMLResponse)
 def set_roles_submit(request: Request, user_id: int, role_names: list[str] = Form([]),
-                     user: User = Depends(require("user:manage"))):
-    return _user_action(request, user, lambda conn: users.set_roles(conn, user, user_id, role_names))
+                     region: str = Form(""), user: User = Depends(require("user:manage"))):
+    return _user_action(request, user,
+                        lambda conn: users.set_roles(conn, user, user_id, role_names, region or None))
 
 
 @router.post("/admin/users/{user_id}/active", response_class=HTMLResponse)
