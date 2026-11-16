@@ -22,3 +22,17 @@ CREATE INDEX ix_connector_message_entity ON connector_message (entity, entity_id
 INSERT INTO setting (key, value) VALUES
     ('connector_payments_url', '"fake://payments"'),
     ('connector_ledger_url', '"fake://ledger"');
+
+-- The foreign key is not enforced on connections that leave PRAGMA foreign_keys off, so the
+-- "no message without its audit event" rule is also a trigger.
+CREATE TRIGGER connector_message_audit_insert BEFORE INSERT ON connector_message
+WHEN NOT EXISTS (SELECT 1 FROM audit_event WHERE id = NEW.audit_event_id)
+BEGIN
+    SELECT RAISE(ABORT, 'connector message needs its audit event');
+END;
+
+CREATE TRIGGER connector_message_audit_update BEFORE UPDATE OF audit_event_id ON connector_message
+WHEN NOT EXISTS (SELECT 1 FROM audit_event WHERE id = NEW.audit_event_id)
+BEGIN
+    SELECT RAISE(ABORT, 'connector message needs its audit event');
+END;
