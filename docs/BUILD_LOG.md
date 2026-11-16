@@ -466,3 +466,7 @@ AC3: server stopped (pid 84124); refund 1 had 2 audit events
 AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 84126)
 ```
 - 03:12: a Devin Review finding on `82b13b7`: `GET /api/kyc/queue?sort=waiting` returned 422 because the API used the customer list spec, not the KYC queue spec. I fixed it in `aea459d` (the API now uses `KYC_QUEUE`) and added `test_kyc_queue_api_sorts_by_waiting_time_like_the_page`.
+- 03:12:55: `make seed-scale` exit 2 (`data/scale.db already holds refunds; delete the file to rebuild it`). After `rm -f data/scale.db`, it exits 0 with `seeded 50000 refunds into data/scale.db: {'approved': 30000, 'pending_approval': 12500, 'rejected': 7500}`.
+- 03:13:20: `make test-scale` exit 0, `4 passed, 1 warning in 3.87s`.
+- Stage 2 wall clock: 03:09:27 to 03:13:20. There were no merge conflicts: A, B and C touched disjoint files, plus my test_lists.py fixture change and the README AC table and Limitations.
+- Stage 3: at 03:13:21 I dispatched a fresh checker with no build context (session a536174fa62f472eac1de10517a41a4f) on `14993e4`.
