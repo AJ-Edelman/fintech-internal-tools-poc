@@ -355,3 +355,7 @@ final reports below.
   4. Feedback tests: two strict xfails now pass (role checkboxes, StrictBool) and their markers were removed; worker C's two "needs worker B" xfails were unmarked and pass. Two feedback assertions counted rows or events that the merged behaviour changes on purpose: the charge picker shows "KYC pending/rejected" instead of a Refund button (count of rows still 25), and the audit total includes 2 payout delivery events (11 instead of 9).
 - Contracts changed after stage 0: `005` triggers (worker A), `test_kyc.py` event count split (worker A). No signature in `connectors.py`, `lists.py` or `scope.py` changed; `lists.register` and `ListSpec` were used as published.
 - `make test` after stage 2: `296 passed, 4 skipped, 1 warning in 58.81s`.
+
+## Stage 3: tool 3, account limit overrides (me alone)
+
+- Start: 02:33:12 UTC (spec minute 17), from merged commit `1249e60`.

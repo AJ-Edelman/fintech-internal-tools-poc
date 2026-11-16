@@ -5,9 +5,10 @@ from starlette.concurrency import run_in_threadpool
 from app.foundation import admin_routes, connector_routes, connectors, web
 from app.foundation.db import db_path_from_env, make_engine
 from app.kyc.routes import router as kyc_router
+from app.limits.routes import router as limits_router
 from app.refunds.routes import router as refunds_router
 
-TOOL_ROUTERS = [refunds_router, kyc_router]
+TOOL_ROUTERS = [refunds_router, kyc_router, limits_router]
 
 
 def create_app(db_path: str | None = None) -> FastAPI:
