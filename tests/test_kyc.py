@@ -261,3 +261,20 @@ def test_ac10_approving_a_refund_requested_before_002_for_unapproved_customer_is
         c.close()
     con.close()
     app.state.engine.dispose()
+
+
+def test_ac7_pii_typed_into_a_refund_reason_is_stored_and_shown_masked(login, sql):
+    agent = login("agent1")
+    created = request_refund(agent, charge_id=1, amount_cents=75000,
+                             reason=f"customer gave SSN {SSN_1} and account {BANK_1}")
+    assert created.status_code == 201
+    refund_id = created.json()["id"]
+    stored = sql.execute("SELECT reason FROM refund WHERE id = ?", (refund_id,)).fetchone()[0]
+    assert stored == "customer gave SSN ***-**-3456 and account ****3456"
+    approver = login("approver1")
+    for client in (agent, approver):
+        for path in ("/api/refunds", f"/api/refunds/{refund_id}", "/refunds", f"/refunds/{refund_id}"):
+            body = client.get(path).text
+            assert SSN_1 not in body and BANK_1 not in body, path
+    assert SSN_1 not in created.text and BANK_1 not in created.text
+    assert SSN_1 not in approver.get("/refunds/queue").text

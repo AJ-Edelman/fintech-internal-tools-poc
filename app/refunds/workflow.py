@@ -8,6 +8,7 @@ from app.foundation import workflow as engine
 from app.foundation.audit import SYSTEM_ACTOR
 from app.foundation.db import utcnow
 from app.foundation.errors import AppError
+from app.foundation.pii import redact_text
 from app.foundation.settings import get_auto_approve_limit
 from app.foundation.workflow import SYSTEM, Transition, Workflow
 
@@ -90,7 +91,8 @@ def request_refund(conn, actor, charge_id: int, amount_cents: int, reason: str) 
     values = {
         "charge_id": charge_id,
         "amount_cents": amount_cents,
-        "reason": reason.strip() if isinstance(reason, str) else reason,
+        # Free text is stored redacted: refund readers do not hold pii:read.
+        "reason": redact_text(reason.strip()) if isinstance(reason, str) else reason,
         "created_at": utcnow(),
     }
     try:
