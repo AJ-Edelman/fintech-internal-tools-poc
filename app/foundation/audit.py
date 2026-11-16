@@ -66,7 +66,7 @@ AUDIT_LIST = lists.register(ListSpec(
              Column("reason", "Reason", "a.reason", searchable=True),
              Column("before", "Before", "a.before", searchable=True),
              Column("after", "After", "a.after", searchable=True)),
-    default_sort="id", default_dir="desc", tiebreak="a.id", extra={"select": "a.*"}))
+    default_sort="id", default_dir="desc", tiebreak="a.id", extra={"max_page_size": 500, "select": "a.*"}))
 
 
 def search(conn, q=None, actor=None, action=None, entity=None, date_from=None, date_to=None,

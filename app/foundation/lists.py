@@ -99,7 +99,7 @@ def run(conn, spec: ListSpec, user, params: Mapping[str, str]) -> dict:
         select = spec.extra["select"] + (f", {spec.waiting_since} AS waiting_since" if spec.waiting_since else "")
     try:
         page = max(1, int(params.get("page") or 1))
-        page_size = min(MAX_PAGE_SIZE, max(1, int(params.get("page_size") or 25)))
+        page_size = min(spec.extra.get("max_page_size", MAX_PAGE_SIZE), max(1, int(params.get("page_size") or 25)))
     except ValueError:
         raise AppError(422, "page and page_size must be integers")
     result = run_list(conn, select=select, frm=spec.source, where=where, params=binds,
