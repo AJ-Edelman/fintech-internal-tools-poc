@@ -1,0 +1,17 @@
+{% extends "list.html" %}
+{% block body %}
+{{ super() }}
+{% if 'connector:retry' in user.permissions %}
+{% for message in result['items'] if message.status == 'failed' %}
+<section class="card">
+  <h3>Retry message #{{ message.id }}</h3>
+  <p>{{ message.connector }} · {{ message.kind }} · {{ message.last_error or 'Delivery failed' }}</p>
+  <form method="post" action="/admin/connectors/{{ message.id }}/retry">
+    <label for="reason-{{ message.id }}">Reason</label>
+    <input id="reason-{{ message.id }}" name="reason" required>
+    <button class="btn" type="submit">Retry message</button>
+  </form>
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

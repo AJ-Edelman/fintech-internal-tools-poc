@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_ui.html" import sort_th, pager, search, status_badge with context %}
+{% block title %}{{ title or spec.name }}{% endblock %}
+{% block body %}
+<div class="head"><div><h1>{{ title or spec.name }}</h1></div></div>
+<div class="card">
+  <div class="toolbar">
+    {% for f in spec.filters %}<div class="chips"><a class="chip {{ 'on' if not result.filters[f.key] }}" href="{{ qs(**{f.key: None}) }}">All</a>
+    {% for v, l in f.options %}<a class="chip {{ 'on' if result.filters[f.key] == v }}" href="{{ qs(**{f.key: v}) }}">{{ l }}</a>{% endfor %}</div>{% endfor %}
+    <span class="grow"></span>
+    {{ search(result, "Search", result.filters) }}
+  </div>
+  <table class="t">
+    <thead><tr>{% for c in spec.columns %}{% if c.sortable %}{{ sort_th(c.label, c.key, result) }}{% else %}<th>{{ c.label }}</th>{% endif %}{% endfor %}{% if spec.waiting_since %}{{ sort_th("Waiting", "waiting", result) }}{% endif %}</tr></thead>
+    <tbody>
+    {% for row in result["items"] %}<tr>{% for c in spec.columns %}<td>{% if c.kind == "status" %}{{ status_badge(row[c.key]) }}{% else %}{{ row[c.key] }}{% endif %}</td>{% endfor %}{% if spec.waiting_since %}<td>{{ row.waiting }}</td>{% endif %}</tr>
+    {% else %}<tr><td colspan="{{ spec.columns|length + 1 }}" class="empty">Nothing matches.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
+{% endblock %}

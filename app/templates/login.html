@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block anon %}
+<div class="login">
+  <div>
+    <div class="brand" style="justify-content:center;padding:0 0 20px"><span class="mark">L</span><span>Ledgerline<small>Internal tools</small></span></div>
+    <div class="card"><div class="card-b" style="padding:28px">
+      <h1 style="font-size:20px;margin:0 0 4px">Log in</h1>
+      <p class="muted" style="margin:0 0 20px">Use your staff account.</p>
+      {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="field"><label for="u">Username</label><input id="u" name="username" autofocus autocomplete="username"></div>
+        <div class="field"><label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password"></div>
+        <button class="btn primary" type="submit" style="width:100%;padding:9px">Log in</button>
+      </form>
+    </div></div>
+    {% if demo_login %}
+    <div class="card"><div class="card-b">
+      <b>Demo: sign in as</b>
+      <div class="demo-groups">
+        {% for tool_label, accounts in demo_accounts %}
+        <section class="demo-group">
+          <h2>{{ tool_label }}</h2>
+          <div class="demo-user-list">
+            {% for account in accounts %}
+            <form method="post" action="/login" data-demo-login>
+              <input type="hidden" name="username" value="{{ account.username }}">
+              <input type="hidden" name="password" value="{{ demo_password }}">
+              <input type="hidden" name="next" value="{{ next }}">
+              <button class="btn demo-user" type="submit">
+                <span><b>{{ account.username }}</b><small class="demo-user-meta">{{ account.role_label }} · {{ account.region }}</small></span>
+              </button>
+            </form>
+            {% endfor %}
+          </div>
+        </section>
+        {% endfor %}
+      </div>
+    </div></div>
+    {% else %}
+    <div class="card"><div class="card-b small muted">
+      <b style="color:var(--text)">Demo accounts</b> (synthetic data, password <span class="mono">demo</span>)
+      <table class="t" style="margin-top:8px"><tbody>
+        {% for tool_label, accounts in demo_accounts %}
+        <tr><th colspan="2">{{ tool_label }}</th></tr>
+        {% for account in accounts %}
+        <tr><td class="mono">{{ account.username }}</td><td>{{ account.role_label }} · {{ account.region }}</td></tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody></table>
+    </div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
