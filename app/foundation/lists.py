@@ -56,6 +56,12 @@ def _search_exprs(spec: ListSpec) -> tuple[str, ...]:
                  for c in spec.columns if c.searchable)
 
 
+def _looks_like_full_pii(q: str) -> bool:
+    # a full SSN or bank account (9+ digits): never matched or echoed for callers without pii:read
+    digits = q.replace("-", "").replace(" ", "")
+    return digits.isdigit() and len(digits) >= 9
+
+
 def run(conn, spec: ListSpec, user, params: Mapping[str, str]) -> dict:
     """items, total (exact), page, pages, page_size, q, sort, dir, filters."""
     from . import scope
@@ -77,6 +83,10 @@ def run(conn, spec: ListSpec, user, params: Mapping[str, str]) -> dict:
         cond, cparams = scope.customer_filter(user, spec.permission, spec.customer_id_expr)
         where.append(f"({cond})")
         binds.update(cparams)
+    q = (params.get("q") or "").strip()
+    blocked = _looks_like_full_pii(q) and user is not None and "pii:read" not in user.permissions
+    if blocked:
+        where.append("0 = 1")
     sorts = {c.key: c.expr for c in spec.columns if c.sortable}
     select = ", ".join(f"{c.expr} AS {c.key}" for c in spec.columns)
     default_sort, default_dir = spec.default_sort, spec.default_dir
@@ -103,6 +113,8 @@ def run(conn, spec: ListSpec, user, params: Mapping[str, str]) -> dict:
             row["waiting"] = _waiting(row.get("waiting_since"))
     if spec.row_view:
         result["items"] = [spec.row_view(row) for row in result["items"]]
+    if blocked:
+        result["q"], result["q_blocked"] = "", True
     result["filters"] = filters
     result.update(filters)
     result["list_name"] = spec.name
@@ -128,6 +140,8 @@ def _waiting(since) -> str:
 
 
 def render(request, user, spec: ListSpec, result: dict, template: str = "list.html", **ctx):
-    from .web import page
+    from .web import _qs, page
     register(spec)
+    if result.get("q_blocked"):
+        ctx["qs"] = lambda **changes: _qs(request, **{"q": None, **changes})
     return page(request, template, user, result=result, spec=spec, shared_list=spec.name, **ctx)

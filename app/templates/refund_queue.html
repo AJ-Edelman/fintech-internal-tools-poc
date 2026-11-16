@@ -9,14 +9,14 @@
 <div class="card">
   <div class="toolbar"><span class="grow"></span>{{ search(result, "Search ID, customer, agent or reason") }}</div>
   <table class="t">
-    <thead><tr>{{ sort_th("ID", "id", result) }}{{ sort_th("Customer", "customer", result) }}{{ sort_th("Amount", "amount", result, "num") }}<th class="num">Of charge</th>{{ sort_th("Requested by", "requested_by", result) }}<th>Agent's reason</th>{{ sort_th("Requested", "created_at", result) }}<th style="text-align:right">Decision</th></tr></thead>
+    <thead><tr>{{ sort_th("ID", "id", result) }}{{ sort_th("Customer", "customer", result) }}{{ sort_th("Amount", "amount", result, "num") }}<th class="num">Of charge</th>{{ sort_th("Requested by", "requested_by", result) }}<th>Agent's reason</th>{{ sort_th("Requested", "created_at", result) }}{{ sort_th("Waiting", "waiting", result) }}<th style="text-align:right">Decision</th></tr></thead>
     <tbody>
     {% for r in result["items"] %}
     <tr><td><a class="strong" href="/refunds/{{ r.id }}">#{{ r.id }}</a></td><td>{{ r.customer_name }}<div class="small muted">Charge #{{ r.charge_id }}</div></td>
       <td class="num strong">{{ r.amount_cents | dollars }}</td><td class="num muted">{{ r.charge_amount_cents | dollars }}</td>
-      <td>{{ r.requested_by }}</td><td class="wrap">{{ r.reason }}</td><td class="muted">{{ r.created_at | day }}</td>
+      <td>{{ r.requested_by }}</td><td class="wrap">{{ r.reason }}</td><td class="muted">{{ r.created_at | day }}</td><td class="muted">{{ r.waiting }}</td>
       <td><div class="row-actions">{% if r.requested_by == user.username %}<span class="small muted">Your request: another approver must decide</span>{% else %}{{ decide_form("/refunds/" ~ r.id ~ "/decision", approve_reasons, reject_reasons, "queue") }}{% endif %}</div></td></tr>
-    {% else %}<tr><td colspan="8" class="empty">Nothing is waiting for a decision.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="9" class="empty">Nothing is waiting for a decision.</td></tr>{% endfor %}
     </tbody>
   </table>
   {{ pager(result) }}
