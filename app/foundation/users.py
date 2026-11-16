@@ -69,6 +69,7 @@ def _require_manage(actor) -> None:
 def _clean_roles(roles) -> list[str]:
     if not isinstance(roles, (list, tuple)) or not all(isinstance(r, str) for r in roles):
         raise AppError(422, "roles must be a list")
+    roles = [r for r in roles if r]  # an unticked form sends nothing or an empty value: no role
     unknown = [r for r in roles if r not in ROLE_PERMISSIONS]
     if unknown:
         raise AppError(422, "unknown role: " + ", ".join(unknown))
