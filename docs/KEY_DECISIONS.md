@@ -24,7 +24,7 @@ tool or only the ones it was designed around.
 | SQLite and a stubbed login | Runs anywhere in one command; keeps the two hours on the controls | Says nothing about hosting, SSO, MFA or concurrency |
 | Fake payments and ledger services | Shows delivery exactly once, failure and retry without credentials | Real integrations cost is unmeasured |
 | Spec with numbered acceptance criteria before any code; fresh Devin sessions with no build context checking each milestone | The builder should not grade its own work. The checks found two real SSN leaks into the audit log | More elapsed time than building straight through; the human cost moves into writing and reviewing specs |
-| Independent pieces built in parallel after contracts were fixed | Tests how Devin would be used across many tools | Elapsed time and total work time diverge; both are logged |
+| Independent pieces built in parallel after contracts were fixed | Tests how Devin would be used across many tools | Elapsed time and total work time diverge; each worker's time is logged |
 
 **Decisions I reversed or was overruled on.** I argued against an admin-set auto-approve limit as a
 single-person control; it was kept with a hard cap of $750. The first build met its spec and was still
