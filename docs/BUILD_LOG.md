@@ -340,3 +340,4 @@ Each was told the deadline 02:42 UTC to push. Their own start and end times are 
 final reports below.
 - 02:23 contract change after stage 0: worker A asked for triggers in `005_connector_messages.sql` (the foreign key alone is not enforced when a raw SQLite connection leaves `foreign_keys` off). Added in `d9dc8fa`; all three workers told.
 - 02:26 worker A: `test_kyc.py` AC7 overlap test counted every audit row (9); a payout delivery attempt adds a `connector_message` row. Changed to count the 9 business events with `entity <> 'connector_message'` (same assertion on the same rows); the connector count is asserted after the merge.
+- Worker C (regions) own time 02:22 to 02:25; pushed `27740b0`; its `make test`: `55 passed, 1 skipped, 2 xfailed` (2 list tests waiting for worker B). Merged into the PR branch at 02:26: no conflicts; `make test` after merge: `55 passed, 1 skipped, 2 xfailed, 1 warning in 12.36s`.
