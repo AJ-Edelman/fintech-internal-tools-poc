@@ -8,7 +8,8 @@ rests on it.
 | Read this | For |
 |---|---|
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | The evaluation and recommendation: three paths, cost, maintenance, security, opportunity cost, next steps |
-| [`docs/KEY_DECISIONS.md`](docs/KEY_DECISIONS.md) | One page on what was built, why this scope, and the tradeoffs |
+| [Key Decisions one-pager (PDF)](docs/AJ_Edelman_Key_Decisions_One_Pager_v2.pdf) | One page on what was built, why this scope, and the tradeoffs |
+| [Loom video](https://www.loom.com/share/e3b722dabde140e79ef9e82c8277bdcc) | Five-minute presentation of the findings |
 | [`docs/research/RESEARCH.md`](docs/research/RESEARCH.md) | What Power Apps provides, with sources |
 | [`docs/BUILD_SPEC.md`](docs/BUILD_SPEC.md), [`BUILD_SPEC_2`](docs/BUILD_SPEC_2.md), [`BUILD_SPEC_3`](docs/BUILD_SPEC_3.md) | The specs Devin built from, with numbered acceptance criteria (AC1 to AC29) |
 | [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) | What Devin built and when, what independent checks found, and what was fixed |
