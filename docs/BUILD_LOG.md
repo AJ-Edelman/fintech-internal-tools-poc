@@ -68,7 +68,7 @@ customers had no KYC status. Fixed by setup data only (see the table). No other 
 
 No existing tool 1 assertion was changed.
 
-## Block 3: review findings and the `tool1-done` independent check (01:03 to 01:10)
+## Block 3: review findings and the `tool1-done` independent check (01:03 to 01:08)
 
 **Devin Review on `df09e33`** (automatic, auto-fix on) raised 4 findings. Each fix is its own commit:
 - Refund reasons shown unmasked to refund roles: fixed in `4716430` (redact before storing).
@@ -202,3 +202,103 @@ Other things it found, logged and not fixed:
 2. A limit change to the same value is still audited (before and after equal).
 3. `/kyc/{id}` shows full values to `kyc1` (audited); same point as in block 4.
 4. `data/app.db` held 3 refunds and 5 audit events after `make seed` (the seed creates them).
+
+## Block 6: third `tool2-done` check and final tag (01:23 to 01:30)
+
+- 01:23 pushed the fix as `45a1163`; CI `test` green. Started a fresh check of that commit (child
+  session 6e541448799d41a1a25de40aef34cc0f) without moving the tag.
+- 01:28 it reported no failed criterion: AC2, AC4, AC5, AC6, AC7, AC8, AC9, AC10, AC12, AC13 and AC14
+  PASS (AC7 after about 12,500 HTTP writes: 0 exact stored SSN or bank account values in
+  `audit_event` or `refund`). Force-moved `tool2-done` from `61ce8e7` to `45a1163`.
+
+Its make output on `45a1163` (result lines; full text in its session):
+
+```
+$ make setup && make seed && make verify
+data/app.db: applied [1, 2]; now at [1, 2]
+seeded demo data into data/app.db
+49 passed, 1 skipped, 1 warning in 6.94s
+AC3: server stopped (pid 10495); refund 1 had 2 audit events
+AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 10497)
+[exit code: 0]
+$ make test
+49 passed, 1 skipped, 1 warning in 6.61s
+[exit code: 0]
+$ make verify
+49 passed, 1 skipped, 1 warning in 6.39s
+AC3: server stopped (pid 12005); refund 1 had 2 audit events
+AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 12007)
+[exit code: 0]
+$ make seed-scale && make test-scale
+seeded 50000 refunds into data/scale.db: {'approved': 30000, 'pending_approval': 12500, 'rejected': 7500}
+1 passed, 1 warning in 0.17s
+[exit code: 0]
+```
+
+Other things it found, logged and not fixed:
+1. A reason starting with a NUL character returns 500, not 422 (the database CHECK on the reason
+   fires; nothing is stored).
+2. Malformed JSON returns 422 before the session and permission checks (same as block 3).
+3. Reformatted SSN and account digits (spaces, dots, extra dashes) are stored unmasked (README
+   limitation).
+
+## End of build
+
+**The `tool2-done` tag was moved twice.** It was first pushed on `aa7e5e3`, then `61ce8e7`; fresh
+checks found AC7 failing on both. It now points at `45a1163`. `tool1-done` was never moved (`df09e33`).
+
+**Elapsed (from the timestamps above):**
+- Tool 1 (foundation, migration 001, refunds): 00:49 to 01:01, 12 minutes to the `tool1-done` tag.
+- Tool 2: first passing local run 01:03 (2 minutes after starting); README, review fixes and the
+  three check rounds ran until the final tag at 01:29, 28 minutes after `tool1-done`.
+- Total: 00:49 to 01:30, 41 of the 120 minutes. Feature work stopped before minute 90.
+
+**ACUs:** not visible to this session.
+
+**`git diff --stat tool1-done tool2-done`:**
+
+```
+ README.md                          | 114 +++++++++++-
+ app/foundation/pii.py              |  13 +-
+ app/foundation/web.py              |   5 +
+ app/kyc/__init__.py                |   0
+ app/kyc/routes.py                  |  66 +++++++
+ app/kyc/workflow.py                |  38 ++++
+ app/main.py                        |   3 +-
+ app/refunds/workflow.py            |  21 ++-
+ app/templates/customer_detail.html |   1 +
+ app/templates/customers.html       |   4 +-
+ app/templates/kyc_queue.html       |  13 ++
+ app/templates/kyc_review.html      |  24 +++
+ app/templates/refund_form.html     |   1 +
+ docs/BUILD_LOG.md                  | 168 ++++++++++++++++++
+ migrations/002_kyc.sql             |  14 ++
+ tests/conftest.py                  |  14 +-
+ tests/test_cap_and_audit_sql.py    |  26 +++
+ tests/test_kyc.py                  | 343 +++++++++++++++++++++++++++++++++++++
+ tests/test_permissions.py          |  20 ++-
+ 19 files changed, 874 insertions(+), 14 deletions(-)
+```
+
+**Acceptance criteria.** "Check" is the fresh check of `45a1163`; "local" is my own run of
+`make verify` / `make test-scale` on the same code.
+
+| AC | Status | Observed by |
+|---|---|---|
+| AC1 | passing | check: `make setup && make seed && make verify` exit 0, `/login` 200 |
+| AC2 | passing | check, local tests |
+| AC3 | passing | check: `AC3 PASS` twice |
+| AC4 | passing | check, local tests |
+| AC5 | passing | check, local tests |
+| AC6 | passing | check, local tests |
+| AC7 | passing | check, after failing on `aa7e5e3` and `61ce8e7` |
+| AC8 | passing | check, local tests |
+| AC9 | passing | check, local tests |
+| AC10 | passing | check, local tests |
+| AC11 | passing | `make test-scale`: `1 passed` (check and local); small version in `make test`. The check of `45a1163` did not attack paging by hand; the check of `aa7e5e3` did and it passed |
+| AC12 | passing | check, local tests |
+| AC13 | passing for `45a1163` (run 43785970736, reported by the check). The run for the commit that adds this section finishes after this is written, so it is not recorded here |
+| AC14 | passing | check, local test |
+
+Nothing was cut: the 50,000-row seed and `make access-review` are both in. No permission check, cap,
+threshold, audit rule or cross-tool rule was cut. Nothing here was verified by a human.
