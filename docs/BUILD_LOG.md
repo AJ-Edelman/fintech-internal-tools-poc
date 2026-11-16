@@ -412,3 +412,7 @@ make access-review -> 8 role assignment(s) in data/app.db (with REGION column)
 - Wall clock: 02:16 to 02:43, 27 of 55 minutes. Nothing was cut.
 - Worker time: A 5 min, B 7 min, C 3 min, README 2 min, fresh check 4 min, feedback tests 11 min; my own work was all of the wall-clock time.
 - Nothing here was verified by a human.
+
+# BUILD_SPEC_3: review fixes
+
+- Start: 03:06:10 UTC (hard stop 20 minutes later; feature stop at minute 15).
