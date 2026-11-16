@@ -54,6 +54,11 @@ def install_error_handlers(app) -> None:
         return page(request, "error.html", user, status_code=exc.status,
                     status=exc.status, detail=exc.detail)
 
+    @app.exception_handler(OverflowError)
+    async def _overflow(request: Request, exc: OverflowError):
+        # An integer too large for a SQLite INTEGER is bad input, not a server fault.
+        return await _app_error(request, AppError(422, "number is out of range"))
+
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError):
         detail = "; ".join(

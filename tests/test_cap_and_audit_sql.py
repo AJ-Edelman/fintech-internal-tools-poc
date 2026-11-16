@@ -149,3 +149,18 @@ def test_ac1_replacing_a_charge_cannot_shrink_it_below_its_refunds(login, sql):
                         "VALUES (1, 1, 74999, '2026-01-01T00:00:00Z')")
     assert sql.execute("SELECT amount_cents FROM charge WHERE id = 1").fetchone()[0] == 200000
 
+
+
+def test_integers_too_large_for_the_database_are_422_not_500(login):
+    huge = 9999999999999999999
+    agent, approver, kyc = login("agent1"), login("approver1"), login("kyc1")
+    assert request_refund(agent, charge_id=huge, amount_cents=100).status_code == 422
+    assert request_refund(agent, charge_id=1, amount_cents=huge).status_code == 422
+    assert agent.post("/refunds/new", data={"charge_id": str(huge), "amount": "1.00",
+                                            "reason": "x"}).status_code == 422
+    for path in (f"/api/refunds/{huge}", f"/refunds/{huge}", f"/api/customers/{huge}",
+                 f"/customers/{huge}", f"/api/charges?customer_id={huge}"):
+        assert agent.get(path).status_code == 422, path
+    assert approver.post(f"/api/refunds/{huge}/approve", json={"reason": "x"}).status_code == 422
+    assert kyc.post(f"/api/kyc/{huge}/decision",
+                    json={"decision": "approve", "reason": "x"}).status_code == 422
