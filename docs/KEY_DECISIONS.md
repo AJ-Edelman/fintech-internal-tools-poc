@@ -1,39 +1,45 @@
 # Key decisions
 
-**What was built.** Three internal tools on one shared foundation: refund requests with maker-checker
-approval, KYC review, and account limit overrides. The foundation supplies what Power Apps gives every
-app: one customer model, permissions by role, region and column, a declarative approval workflow, an
-append-only audit log, outbound connections with retry, and one list component with search, sort and
-paging. FastAPI, SQLite, server-rendered pages, pytest, GitHub Actions. Synthetic data only.
+**The question I chose to answer.** The VP asked "can Devin build these tools?" I thought that was the
+easy part and the wrong test. A coding agent can obviously produce a refunds screen. What the client
+pays $250k for is what sits under the screens: shared data, server-side permissions, approvals, audit,
+and someone else running it. So I scoped the prototype to test one thing the decision turns on: once
+that layer exists in code, what does the next tool cost, and what does the client now own?
 
-**Why this scope.** The client's question is about 13 tools, so one polished tool would answer the wrong
-question. I ranked what the platform provides into three tiers and required the prototype to exercise
-every tier 1 item, stub tier 2 openly, and name tier 3 as not established. Refunds plus KYC was the
-smallest pair that shares business data and needs a rule across tools (no refund while KYC is not
-approved). The feature-flag panel shares no data with either, so it was left out. The third tool is one
-the client does not have today, built last and timed alone, to test whether the foundation carries a new
-tool or only the ones it was designed around.
+**Why this scope.** I ranked what the platform provides into three tiers and set a rule before choosing:
+the prototype must exercise every tier 1 item, stub tier 2 openly, and name tier 3 as not shown. Four
+scopes were on the table.
 
-**Architecture decisions and their tradeoffs**
+| Option | Why I rejected or chose it |
+|---|---|
+| One polished tool (KYC queue) | The best demo, but it shows nothing about reuse, and the client's question is about 13 tools |
+| Refunds + feature flags | Two tools, but they share no business data, so the shared-model claim would be asserted, not shown |
+| A config-driven tool engine | Strongest scaling story on paper; in two hours it becomes a worse rebuild of Power Apps |
+| **Refunds + a light KYC review** | The smallest pair with shared customer data and a rule that crosses tools (no refund until KYC is approved) |
 
-| Decision | Why | Cost |
-|---|---|---|
-| The foundation is the product, tools are thin | The per-tool cost is what decides build versus buy | The foundation couples every tool; a change to it touches all of them, as on the platform |
-| Controls enforced on the server, the critical ones in the database | A rule in one tool's screen does not bind the next tool or a script | Triggers are harder to read and change than application code |
-| Workflow declared as data (states, transitions, guards) | A new tool declares its process and reuses approval, audit and scope checks | Less flexible than hand-written logic for unusual flows |
-| SQLite and a stubbed login | Runs anywhere in one command; keeps the two hours on the controls | Says nothing about hosting, SSO, MFA or concurrency |
-| Fake payments and ledger services | Shows delivery exactly once, failure and retry without credentials | Real integrations cost is unmeasured |
-| Spec with numbered acceptance criteria before any code; fresh Devin sessions with no build context checking each milestone | The builder should not grade its own work. The checks found two real SSN leaks into the audit log | More elapsed time than building straight through; the human cost moves into writing and reviewing specs |
-| Independent pieces built in parallel after contracts were fixed | Tests how Devin would be used across many tools | Elapsed time and total work time diverge; each worker's time is logged |
+The price of that choice was depth. KYC has no claim/lock, escalation or documents, and the screens are
+plain tables and forms. I accepted a thinner demo to get evidence on reuse. The third tool, limit
+overrides, is one the client does not have. I added it last and timed it alone, because the first two
+tools shaped the foundation and so could not fairly test it.
 
-**Decisions I reversed or was overruled on.** I argued against an admin-set auto-approve limit as a
-single-person control; it was kept with a hard cap of $750. The first build met its spec and was still
-too thin to stand in for the platform (no integrations, no record-level access, bare lists), because the
-spec asked for too little. A second spec closed that. A review then found admin changes that weakened
-controls without a recorded reason, and a third spec fixed those.
+**Architecture tradeoffs.**
+- *Foundation first, tools thin.* The per-tool cost is the number that decides build versus buy. The cost is coupling: a foundation change touches every tool, the same lock-in the client has today, now self-inflicted.
+- *Critical rules in the database, not only the application.* Self-approval, the KYC gate, the limit cap and the append-only audit log are triggers. A rule in one tool's code does not bind the next tool or a script. Triggers are harder to read and change, so only rules whose failure is a control failure went there.
+- *Workflow as declared states and guards, not hand-written per tool.* This is what made tool 3 cheap. It will fit unusual processes badly, and I did not test one.
+- *SQLite, stubbed login, fake payment services.* I spent the two hours on controls, not infrastructure. This is the largest hole in the evidence: hosting, SSO and real integrations are where a real build's cost sits, and I measured none of it.
 
-**What the design does not establish.** Real SSO or MFA; production hosting, backups, encryption,
-retention; real integrations; document attachments; non-engineers building tools, which is the
-platform's one capability code cannot match; migration of existing data; and the cost of tools 4 to 13.
-The timings are two data points on synthetic tools. They show a new tool is cheap to write on an
-existing foundation, not that owning thirteen is cheaper than the license.
+**How I used Devin, and why.** I wrote the spec with numbered acceptance criteria in a planning session
+and gave only the spec to a fresh build session, so the instructions an engineer would need are on the
+page and not hidden in my context. Fresh sessions with no build context checked each milestone, because
+a builder grading its own work is not evidence. That caught two real SSN leaks into the audit log that
+the builder's own tests passed. The cost is that my time moved into writing and reviewing specs, which
+was more than half of the total.
+
+**Where I was wrong or changed course.**
+- My first spec was met in full and was still too thin to stand in for the platform: no integrations, no record-level access, bare lists. The failure was mine, not the build's, and a second spec fixed it.
+- Devin challenged an admin-set auto-approve limit as a one-person control. I kept it for the operations team's sake, but added a hard $750 cap enforced in the database.
+- A later review found admin changes that weakened controls with no recorded reason. A third spec closed that.
+
+**What I would not claim from this.** Three synthetic tools show the pattern is feasible and the next
+tool is cheap to write. They do not price tools 4 to 13, production operation, or migration, and they
+cannot match non-engineers building their own tools.
