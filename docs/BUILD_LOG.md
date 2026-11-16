@@ -338,3 +338,4 @@ minute 55 = 03:11 (hard stop).
 
 Each was told the deadline 02:42 UTC to push. Their own start and end times are copied from their
 final reports below.
+- 02:23 contract change after stage 0: worker A asked for triggers in `005_connector_messages.sql` (the foreign key alone is not enforced when a raw SQLite connection leaves `foreign_keys` off). Added in `d9dc8fa`; all three workers told.
