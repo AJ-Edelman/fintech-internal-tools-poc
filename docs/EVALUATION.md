@@ -28,20 +28,21 @@ contract: what the $250k covers, the renewal date, minimums, and whether the sam
 for anything else. Devin usage for the prototype was not visible to the build session and must be read
 from the session usage pages.
 
-**Engineering capacity.** This is time, not cash, and is not netted against the license.
+**Engineering capacity.** This is time, not cash, and is not netted against the license. Build cost has
+three layers, and only the first is measured.
 
-| Item | What we know |
-|---|---|
-| First build (foundation + refunds + KYC) | 41 minutes of Devin time, 12 to the first tool (measured) |
-| Tool 2 on the foundation (KYC) | 2 minutes to first passing run, 28 with independent checks and fixes; about 100 lines of tool code (measured) |
-| Tool 3 on the foundation (limit overrides) | 2 minutes to first passing run; 314 lines of tool code; one foundation file changed (measured) |
-| Follow-up specs (connections, lists, record scope, tool 3; then review fixes) | 27 and 12 minutes, plus 14 minutes of product-feedback changes. Total active build time 94 minutes; 149 minutes on the clock from first to last commit (measured, from the build log) |
-| Human time | Writing and reviewing three specs and the product feedback. Not timed. This, not Devin's minutes, is the real build cost |
-| Production foundation | Not measured. Needs SSO and MFA, hosting, backups, encryption, retention, monitoring, real integrations |
-| Migration of the three live tools and their data | Not measured |
+| Layer | Estimate | Basis |
+|---|---|---|
+| 1. This prototype | About 2 hours of planning and research, 94 minutes of active Devin build time (149 on the clock), and 30 minutes of human review of the app: roughly 4 hours end to end. Devin usage (ACUs) was not captured | Hours are the author's estimate; build minutes are measured from the build log |
+| 2. A production foundation | Not measured. Needs SSO and MFA, hosting, backups, encryption, retention, monitoring and real integrations. Expect engineer-weeks, to be sized by the client's own team | Assumed |
+| 3. Each further tool | A written spec, a Devin build, independent checks and human review. Tool 2 took 2 minutes to a first passing run and 28 with checks and fixes; tool 3 took 2 minutes (about 100 and 314 lines of tool code) | Measured, and a low end: both tools were simple and synthetic |
 
-These are two data points from synthetic tools. They support "a new tool on an existing foundation is
-cheap to write"; they do not price tools 4 to 13.
+Migrating the three live tools and their data is not measured and is not part of the recommendation.
+
+**How to read this.** More than half of the prototype's cost was human planning and review, not Devin's
+build minutes. That ratio is the useful finding: the cost of each further tool will be set by how long
+it takes to specify and review, and by layer 2, not by how fast the code is written. Two data points on
+synthetic tools do not price tools 4 to 13, so this is a range with stated assumptions, not one number.
 
 ## Maintenance burden
 
