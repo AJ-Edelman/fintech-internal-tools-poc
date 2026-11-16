@@ -119,3 +119,49 @@ Other things it found, logged and not fixed unless noted:
 7. No logout route and no session expiry. Not fixed. README was two lines at that tag (written since).
 8. Test gaps: AC4's form check covers approve only (the checker tested reject by hand: 403); no test
    sent malformed JSON. Not changed.
+
+## Block 4: `tool2-done` tag and its independent check (01:08 to 01:17)
+
+- 01:08 CI `test` was green for `aa7e5e3`; local `make verify` gave `46 passed, 1 skipped` and
+  `AC3 PASS`. Tagged `tool2-done` on `aa7e5e3` and started the independent check (child session
+  d683243801734933b55de141acb0079d, fresh clone of the tag, no build context).
+- 01:13 the check reported 13 of 14 criteria PASS and **AC7 FAIL**: an SSN glued to a letter, digit or
+  underscore (`ssn901-17-2231`, `_901-17-2231_`, `1901-17-2231`) was written unredacted to
+  `audit_event.reason` and `refund.reason`, because the pattern required word boundaries. So the first
+  `tool2-done` tag was on a commit that did not meet AC7; my own AC7 test had not covered that case.
+- Fix (the only failed criterion): removed the word boundaries from the SSN pattern in
+  `app/foundation/pii.py` and added `test_ac7_ssn_glued_to_other_characters_never_reaches_an_audit_row`,
+  which fails without the fix and passes with it. No existing test was changed.
+- Also reworded one README walkthrough step (the seed already has refunds on charges 1, 3 and 5).
+
+The check's make output on `aa7e5e3` (result lines; full text in its session):
+
+```
+$ make setup        -> data/app.db: applied [1, 2]; now at [1, 2]                     [exit code: 0]
+$ make seed         -> seeded demo data into data/app.db                               [exit code: 0]
+$ make verify       -> 46 passed, 1 skipped, 1 warning in 9.25s
+                       AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 10438)  [exit code: 0]
+$ make test         -> 46 passed, 1 skipped, 1 warning in 6.64s                        [exit code: 0]
+$ make verify       -> 46 passed, 1 skipped, 1 warning in 6.37s
+                       AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 11947)  [exit code: 0]
+$ make seed-scale   -> seeded 50000 refunds into data/scale.db: {'approved': 30000, 'pending_approval': 12500, 'rejected': 7500}  [exit code: 0]
+$ make test-scale   -> 1 passed, 1 warning in 0.20s                                    [exit code: 0]
+```
+
+It also reported that no tool 1 assertion was weakened or removed between the tags.
+
+Other things it found, logged and not fixed:
+1. Separator variants (`901 17 2231`, `901.17.2231`, en dash, zero-width space, `4000-104729`) reach
+   audit rows. These are not the exact stored values; listed in the README limitations.
+2. Full values also show on the KYC review page `/kyc/{id}` (audited), not only on `/customers/{id}`.
+   I treated the review page as a customer detail view; the spec names customer detail as the one
+   exception, so this is a reading of the spec that a human should confirm.
+3. The cross-tool rule and audit redaction are app-level only; direct SQL can bypass them.
+4. With `PRAGMA foreign_keys = OFF`, direct SQL can insert a refund on a nonexistent charge and delete
+   a charge that has refunds.
+5. The refund form accepts scientific notation (`amount=1e2` creates a $100.00 refund).
+6. An oversized `amount_cents` gets 422 with the "would exceed the charge amount" message.
+7. A rejected-KYC customer's pending refund can still be rejected by an approver (the spec restricts
+   only create and approve).
+8. Not checked by it: whether tests leave `./data/` byte-identical, `make access-review`, a line by
+   line read of the tests.
