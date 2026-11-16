@@ -22,12 +22,16 @@ def _more_data(sql, customers=57, refunds=83):
         sql.execute("INSERT INTO customer (name, email, ssn, bank_account, kyc_status) VALUES (?, ?, ?, ?, ?)",
                     (name, f"c{(n * 37) % 101}@example.test", f"900-{n % 90 + 10:02d}-{1000 + n:04d}",
                      f"40{n:08d}", ("pending", "approved", "rejected")[n % 3]))
+    # Historical rejected refunds on non-KYC customers: migration 007 refuses these inserts while the
+    # KYC rule is on, so the fixture data is loaded with it off and the rule is switched back on.
+    sql.execute("UPDATE setting SET value = 'false' WHERE key = 'refund_requires_kyc'")
     for n in range(refunds):
         charge = n % 8 + 1
         sql.execute("INSERT INTO refund (charge_id, amount_cents, reason, status, requested_by, decided_by, "
                     "created_at, updated_at) VALUES (?, ?, ?, 'rejected', ?, 'approver1', ?, ?)",
                     (charge, (n * 7919) % 5000 + 1, f"reason {n % 5}", ("agent1", "agent2")[n % 2],
                      f"2026-01-{n % 28 + 1:02d}T00:00:00Z", "2026-01-01T00:00:00Z"))
+    sql.execute("UPDATE setting SET value = 'true' WHERE key = 'refund_requires_kyc'")
 
 
 def test_ac18_customers_refunds_and_kyc_lists_small(login, sql):
