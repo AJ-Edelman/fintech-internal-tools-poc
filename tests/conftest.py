@@ -18,10 +18,11 @@ USERS = {
 }
 SSN_1, BANK_1 = "900-12-3456", "4000123456"
 SSN_2, BANK_2 = "900-65-4321", "4000987654"
+SSN_3, BANK_3 = "900-77-1122", "4000555577"
 
 
 def seed_basics(db_path: str) -> None:
-    """Five demo users, two customers, and charges 1-6 ($2,000 each) on customer 1."""
+    """Five demo users, three customers, charges 1-6 ($2,000 each) on customer 1, 7 and 8 on 2 and 3."""
     engine = make_engine(db_path)
     with engine.begin() as conn:
         for username, roles in USERS.items():
@@ -35,8 +36,15 @@ def seed_basics(db_path: str) -> None:
                 "INSERT INTO charge (id, customer_id, amount_cents, created_at) "
                 "VALUES (:i, 1, 200000, '2026-01-01T00:00:00Z')"), {"i": charge_id})
         conn.execute(text(
-            "INSERT INTO charge (id, customer_id, amount_cents, created_at) "
-            "VALUES (7, 2, 200000, '2026-01-01T00:00:00Z')"))
+            "INSERT INTO customer (id, name, email, ssn, bank_account) VALUES "
+            f"(3, 'Cleo Field', 'cleo@example.test', '{SSN_3}', '{BANK_3}')"))
+        conn.execute(text(
+            "INSERT INTO charge (id, customer_id, amount_cents, created_at) VALUES "
+            "(7, 2, 200000, '2026-01-01T00:00:00Z'), (8, 3, 200000, '2026-01-01T00:00:00Z')"))
+        # Tool 2 setup data: customer 1 is KYC-approved, 2 stays pending, 3 is rejected.
+        if any(r[1] == "kyc_status" for r in conn.execute(text("PRAGMA table_info(customer)"))):
+            conn.execute(text("UPDATE customer SET kyc_status = 'approved' WHERE id = 1"))
+            conn.execute(text("UPDATE customer SET kyc_status = 'rejected' WHERE id = 3"))
     engine.dispose()
 
 

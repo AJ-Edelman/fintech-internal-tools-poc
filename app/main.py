@@ -3,9 +3,10 @@ from fastapi import FastAPI
 
 from app.foundation import web
 from app.foundation.db import db_path_from_env, make_engine
+from app.kyc.routes import router as kyc_router
 from app.refunds.routes import router as refunds_router
 
-TOOL_ROUTERS = [refunds_router]
+TOOL_ROUTERS = [refunds_router, kyc_router]
 
 
 def create_app(db_path: str | None = None) -> FastAPI:

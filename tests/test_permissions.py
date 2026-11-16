@@ -28,9 +28,10 @@ def test_every_route_except_login_checks_a_permission(app):
 
 def test_routes_never_check_role_names():
     import app.foundation.web as web
+    import app.kyc.routes as kyc_routes
     import app.refunds.routes as refund_routes
 
-    for module in (web, refund_routes):
+    for module in (web, refund_routes, kyc_routes):
         source = inspect.getsource(module)
         for role in ROLE_PERMISSIONS:
             assert f'"{role}"' not in source and f"'{role}'" not in source, (
@@ -102,6 +103,23 @@ def test_ac5_agent_calling_approve_endpoint_gets_403(login, sql):
         assert client.get("/refunds/queue").status_code == 403
     assert agent1.get(f"/api/refunds/{refund['id']}").json()["status"] == "pending_approval"
     assert [e["action"] for e in audit_rows(sql, "refund", refund["id"])] == ["refund.request"]
+
+
+def test_ac5_refund_agent_calling_kyc_decision_endpoint_gets_403(login, sql):
+    agent = login("agent1")
+    for decision in ("approve", "reject"):
+        response = agent.post("/api/kyc/2/decision", json={"decision": decision, "reason": "try"})
+        assert response.status_code == 403
+        assert agent.post("/kyc/2/decision",
+                          data={"decision": decision, "reason": "try"}).status_code == 403
+    assert agent.get("/api/kyc/queue").status_code == 403
+    assert agent.get("/kyc/queue").status_code == 403
+    assert agent.get("/kyc/2").status_code == 403
+    assert sql.execute("SELECT kyc_status FROM customer WHERE id = 2").fetchone()[0] == "pending"
+    assert audit_rows(sql, "customer", 2) == []
+    for username in ("approver1", "admin1"):
+        assert login(username).post("/api/kyc/2/decision",
+                                    json={"decision": "approve", "reason": "try"}).status_code == 403
 
 
 def test_approver_cannot_create_and_other_roles_cannot_touch_refunds(login):

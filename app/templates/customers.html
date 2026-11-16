@@ -3,9 +3,9 @@
 {% block body %}
 <h1>Customers</h1>
 <table>
-<tr><th>ID</th><th>Name</th><th>Email</th><th>SSN</th><th>Bank account</th></tr>
+<tr><th>ID</th><th>Name</th><th>Email</th><th>SSN</th><th>Bank account</th><th>KYC status</th></tr>
 {% for c in customers %}
-<tr><td><a href="/customers/{{ c.id }}">{{ c.id }}</a></td><td>{{ c.name }}</td><td>{{ c.email }}</td><td>{{ c.ssn }}</td><td>{{ c.bank_account }}</td></tr>
+<tr><td><a href="/customers/{{ c.id }}">{{ c.id }}</a></td><td>{{ c.name }}</td><td>{{ c.email }}</td><td>{{ c.ssn }}</td><td>{{ c.bank_account }}</td><td>{{ c.kyc_status }}</td></tr>
 {% endfor %}
 </table>
 {% endblock %}

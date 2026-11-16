@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}KYC review: customer {{ customer.id }}{% endblock %}
+{% block body %}
+<h1>KYC review: customer {{ customer.id }}</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if customer.pii_revealed %}<p>Full SSN and bank account shown. This view was written to the audit log.</p>{% endif %}
+<table>
+<tr><th>Name</th><td>{{ customer.name }}</td></tr>
+<tr><th>Email</th><td>{{ customer.email }}</td></tr>
+<tr><th>SSN</th><td>{{ customer.ssn }}</td></tr>
+<tr><th>Bank account</th><td>{{ customer.bank_account }}</td></tr>
+<tr><th>KYC status</th><td>{{ customer.kyc_status }}</td></tr>
+</table>
+{% if customer.kyc_status == "pending" %}
+<h2>Decide</h2>
+<form method="post" action="/kyc/{{ customer.id }}/decision">
+<label>Reason <input name="reason" size="60"></label>
+<button type="submit" name="decision" value="approve">Approve</button>
+<button type="submit" name="decision" value="reject">Reject</button>
+</form>
+{% endif %}
+<h2>Audit history</h2>
+{% include "_history.html" %}
+{% endblock %}

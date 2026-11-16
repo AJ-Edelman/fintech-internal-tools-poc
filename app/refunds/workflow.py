@@ -40,6 +40,17 @@ def guard_valid_request(conn, row, actor):
         raise AppError(422, "refund would exceed the charge amount (pending plus approved)")
 
 
+def guard_customer_kyc_approved(conn, row, actor):
+    """Cross-tool rule (tool 2): refunds are created or approved only for KYC-approved customers."""
+    status = conn.execute(
+        text("SELECT cu.kyc_status FROM charge ch JOIN customer cu ON cu.id = ch.customer_id "
+             "WHERE ch.id = :c"),
+        {"c": row["charge_id"]},
+    ).scalar()
+    if status != "approved":
+        raise AppError(422, f"customer KYC status is {status}; it must be approved")
+
+
 def guard_not_own_request(conn, row, actor):
     if row["requested_by"] == actor.username:
         raise AppError(403, "you cannot decide a refund you requested")
@@ -57,11 +68,13 @@ REFUND_WORKFLOW = Workflow(
     audit_columns=("charge_id", "amount_cents", "requested_by"),
     updated_at_column="updated_at",
     transitions=(
-        Transition("request", None, PENDING, "refund:create", guards=(guard_valid_request,),
+        Transition("request", None, PENDING, "refund:create",
+                   guards=(guard_valid_request, guard_customer_kyc_approved),
                    actor_column="requested_by"),
         Transition("auto_approve", PENDING, APPROVED, None, actor_column="decided_by",
                    audit_extra=_auto_approval_audit),
-        Transition("approve", PENDING, APPROVED, "refund:approve", guards=(guard_not_own_request,),
+        Transition("approve", PENDING, APPROVED, "refund:approve",
+                   guards=(guard_not_own_request, guard_customer_kyc_approved),
                    actor_column="decided_by"),
         Transition("reject", PENDING, REJECTED, "refund:approve", guards=(guard_not_own_request,),
                    actor_column="decided_by"),

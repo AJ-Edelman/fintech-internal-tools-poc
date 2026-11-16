@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}KYC queue{% endblock %}
+{% block body %}
+<h1>KYC queue</h1>
+<p>Customers waiting for review. Values are masked here; opening a customer shows them in full and is audited.</p>
+<table>
+<tr><th>ID</th><th>Name</th><th>Email</th><th>SSN</th><th>Bank account</th><th>KYC status</th></tr>
+{% for c in customers %}
+<tr><td><a href="/kyc/{{ c.id }}">{{ c.id }}</a></td><td>{{ c.name }}</td><td>{{ c.email }}</td><td>{{ c.ssn }}</td><td>{{ c.bank_account }}</td><td>{{ c.kyc_status }}</td></tr>
+{% else %}<tr><td colspan="6">Nobody is waiting.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

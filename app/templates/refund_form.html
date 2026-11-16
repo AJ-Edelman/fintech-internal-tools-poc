@@ -2,6 +2,7 @@
 {% block title %}Request refund{% endblock %}
 {% block body %}
 <h1>Request a refund</h1>
+<p>Refunds can be requested only for customers whose KYC status is approved.</p>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <form method="post" action="/refunds/new">
 <label>Charge
