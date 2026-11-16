@@ -454,3 +454,4 @@ Times come from chat timestamps and commit times (UTC).
 | C, seed and queue | d0f0b71f98954843b45db79c3fd927ae | `devin/s3-seed-kyc` | seed.py, kyc/routes.py, kyc/workflow.py, tests/test_seed_and_kyc_queue.py, README walkthrough |
 
 - While they ran, I wrote fix 5 (from 03:06:50 to 03:07:20).
+- 03:07: worker A asked to change 3 existing test files (test_feedback_settings.py, test_feedback_admin.py, test_feedback_lists.py). Those tests assumed the feedback-era rule that no setting needs a reason, and BUILD_SPEC_3 fix 1 makes the rule stricter. I gave A ownership of those 3 files, limited to adding reasons and reason assertions to control-weakening writes. No-reason assertions for the exempt settings stay.

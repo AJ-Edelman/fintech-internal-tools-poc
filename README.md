@@ -125,6 +125,11 @@ over $1,000. Every customer starts with a daily limit of $5,000.00.
 | AC22 | `tests/test_limits.py::test_ac22_*` |
 | AC23 | `tests/test_limits.py::test_ac23_denials` |
 | AC24 | `tests/test_lists.py::test_ac24_*` |
+| AC25 | `tests/test_reasons.py` |
+| AC26 | `tests/test_data_layer_rules.py` (AC26 tests) |
+| AC27 | `tests/test_data_layer_rules.py` (AC27 migration test) |
+| AC28 | `tests/test_seed_and_kyc_queue.py` (AC28 tests) |
+| AC29 | `tests/test_seed_and_kyc_queue.py` (AC29 tests) |
 
 Product-feedback changes (dollars, reason dropdowns, quick decisions, user management, settings,
 migration 006) are covered by `tests/test_feedback_forms.py`, `test_feedback_lists.py`,
@@ -160,8 +165,13 @@ it changed was `app/main.py`.
 
 - No real SSO or MFA. Login is a stub with one shared demo password.
 - No CSRF tokens.
-- One admin can change the auto-approve limit (up to $750) and the other settings without a second
-  approver or a reason (the audit event records who, when, old and new value).
+- One admin can still make every settings and access change alone; there is no second approver.
+  Changes that weaken a control (KYC requirement, maximum refund age, a user's roles, region or active
+  status) need a reason, which is recorded on the audit event.
+- By product decision the auto-approve limit (up to $750), session timeout and reason lists need no
+  reason; the audit event still records who, when, old and new value.
+- Database triggers (refund cap, self-approval, the KYC rule, the auto-approve limit range, the
+  append-only audit log) do not stop someone who controls the database file.
 - No production hosting, encryption at rest or backups.
 - No retention or disposal of data.
 - The audit log is append-only for the app, but not tamper-proof against whoever controls the
