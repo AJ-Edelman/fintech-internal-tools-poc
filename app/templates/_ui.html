@@ -69,3 +69,13 @@ time:   {{ e.created_at }}</pre></details>
 </ul>
 {% else %}<p class="muted" style="margin:0">No audit events.</p>{% endif %}
 {%- endmacro %}
+
+
+{% macro refund_action(c, primary=False) -%}
+{% if user.can("refund:create") %}
+  {% if c.remaining_cents <= 0 %}<span class="small muted">Fully refunded</span>
+  {% elif rules.requires_kyc and c.kyc_status != "approved" %}<span class="small muted">KYC {{ c.kyc_status }}</span>
+  {% elif rules.cutoff and c.created_at < rules.cutoff %}<span class="small muted">Older than {{ rules.max_age_days }} days</span>
+  {% else %}<a class="btn sm {{ 'primary' if primary }}" href="/refunds/new?charge_id={{ c.id }}">Refund</a>{% endif %}
+{% endif %}
+{%- endmacro %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_ui.html" import sort_th, pager, search, status_badge with context %}
+{% from "_ui.html" import sort_th, pager, search, status_badge, refund_action with context %}
 {% block title %}{{ "Request refund" if picker else "Charges" }}{% endblock %}
 {% block body %}
 <div class="head"><div>
@@ -25,7 +25,7 @@
     <tr><td class="strong">#{{ c.id }}</td><td><a href="/customers/{{ c.customer_id }}">{{ c.customer_name }}</a></td><td>{{ status_badge(c.kyc_status) }}</td>
       <td class="muted">{{ c.created_at | day }}</td><td class="num">{{ c.amount_cents | dollars }}</td><td class="num muted">{{ c.committed_cents | dollars }}</td>
       <td class="num strong">{{ c.remaining_cents | dollars }}</td>
-      <td class="num">{% if user.can("refund:create") and c.remaining_cents > 0 %}<a class="btn sm {{ 'primary' if picker }}" href="/refunds/new?charge_id={{ c.id }}">Refund</a>{% endif %}</td></tr>
+      <td class="num">{{ refund_action(c, picker) }}</td></tr>
     {% else %}<tr><td colspan="8" class="empty">No charges match.</td></tr>{% endfor %}
     </tbody>
   </table>

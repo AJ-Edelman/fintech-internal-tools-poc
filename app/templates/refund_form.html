@@ -8,7 +8,8 @@
 <div class="grid g3">
   <div class="card"><div class="card-b">
     {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
-    {% if charge.kyc_status != "approved" %}<div class="alert note">This customer's KYC is {{ charge.kyc_status }}. Refunds can only be requested for customers whose KYC is approved.</div>{% endif %}
+    {% if rules.cutoff and charge.created_at < rules.cutoff %}<div class="alert note">This charge is older than {{ rules.max_age_days }} days, so it can no longer be refunded.</div>{% endif %}
+    {% if rules.requires_kyc and charge.kyc_status != "approved" %}<div class="alert note">This customer's KYC is {{ charge.kyc_status }}. Refunds can only be requested for customers whose KYC is approved.</div>{% endif %}
     <form method="post" action="/refunds/new">
       <input type="hidden" name="charge_id" value="{{ charge.id }}">
       <div class="field"><label for="amount">Refund amount requested (Max {{ max_cents | dollars }})</label>

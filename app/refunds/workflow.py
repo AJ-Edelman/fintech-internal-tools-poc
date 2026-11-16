@@ -9,8 +9,6 @@ from app.foundation.audit import SYSTEM_ACTOR
 from app.foundation.db import utcnow
 from app.foundation.errors import AppError
 from app.foundation.pii import redact_text
-from datetime import datetime, timedelta, timezone
-
 from app.foundation import settings
 from app.foundation.listing import run_list
 from app.foundation.settings import get_auto_approve_limit
@@ -59,14 +57,14 @@ def guard_customer_kyc_approved(conn, row, actor):
 
 
 def guard_charge_not_too_old(conn, row, actor):
-    days = settings.get(conn, settings.MAX_REFUND_AGE)
-    if days is None:
+    rules = settings.refund_rules(conn)
+    if rules["cutoff"] is None:
         return
     created = conn.execute(text("SELECT created_at FROM charge WHERE id = :c"),
                            {"c": row["charge_id"]}).scalar()
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
-    if created is not None and created.replace(" ", "T") < cutoff:
-        raise AppError(422, f"charge is older than {days} days; refunds are no longer allowed")
+    if created is not None and created.replace(" ", "T") < rules["cutoff"]:
+        raise AppError(422, f"charge is older than {rules['max_age_days']} days; "
+                            "refunds are no longer allowed")
 
 
 def guard_not_own_request(conn, row, actor):

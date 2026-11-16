@@ -42,6 +42,7 @@ templates.env.filters["day"] = _day
 templates.env.filters["role_label"] = role_label
 templates.env.filters["words"] = lambda value: str(value).replace("_", " ").capitalize()
 templates.env.filters["describe"] = audit.describe
+templates.env.filters["ucfirst"] = lambda value: value[:1].upper() + value[1:]
 
 
 def to_cents(amount: str, what: str = "amount") -> int:
@@ -250,8 +251,9 @@ def charges_page(request: Request, q: str | None = None, show: str | None = None
     with tx(request) as conn:
         result = customers.search_charges(conn, q, None, show == "refundable", kyc_status or None,
                                           sort, dir, page_no, page_size)
+        rules = settings.refund_rules(conn)
     return page(request, "charges.html", user, result=result, statuses=customers.KYC_STATUSES,
-                picker=False, show=show or "all")
+                picker=False, show=show or "all", rules=rules)
 
 
 @router.get("/customers/{customer_id}", response_class=HTMLResponse)
@@ -261,7 +263,8 @@ def customer_page(request: Request, customer_id: int, q: str | None = None, sort
     with tx(request) as conn:
         customer = customers.get_customer(conn, customer_id, user)
         result = customers.search_charges(conn, q, customer_id, False, None, sort, dir, page_no, page_size)
-    return page(request, "customer_detail.html", user, customer=customer, result=result)
+        rules = settings.refund_rules(conn)
+    return page(request, "customer_detail.html", user, customer=customer, result=result, rules=rules)
 
 
 # --- admin: settings ------------------------------------------------------------------

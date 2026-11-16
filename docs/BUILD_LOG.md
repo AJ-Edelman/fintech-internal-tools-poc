@@ -302,3 +302,7 @@ checks found AC7 failing on both. It now points at `45a1163`. `tool1-done` was n
 
 Nothing was cut: the 50,000-row seed and `make access-review` are both in. No permission check, cap,
 threshold, audit rule or cross-tool rule was cut. Nothing here was verified by a human.
+
+# BUILD_SPEC_2
+
+Start: 02:16 UTC (2026-11-16). Hard stop per the spec is recorded below once the spec is read.

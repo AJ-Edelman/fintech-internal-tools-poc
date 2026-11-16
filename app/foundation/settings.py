@@ -1,5 +1,6 @@
 """Stored settings. Each change is audited with the old and new value."""
 import json
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 
 from sqlalchemy import text
@@ -135,3 +136,12 @@ def resolve_reason(conn, key: str, choice: str | None, other: str | None, typed:
     if choice not in reason_options(conn, key):
         raise AppError(422, "choose a reason from the list")
     return choice
+
+
+def refund_rules(conn) -> dict:
+    """The two stored rules that can block a refund request, in the form lists need to show them."""
+    days = get(conn, MAX_REFUND_AGE)
+    cutoff = None
+    if days is not None:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+    return {"requires_kyc": bool(get(conn, REFUND_REQUIRES_KYC)), "max_age_days": days, "cutoff": cutoff}

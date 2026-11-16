@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_ui.html" import sort_th, pager, status_badge with context %}
+{% from "_ui.html" import sort_th, pager, status_badge, refund_action with context %}
 {% block title %}{{ customer.name }}{% endblock %}
 {% block body %}
 <div class="head"><div><div class="crumb"><a href="/customers">Customers</a> / #{{ customer.id }}</div>
@@ -16,7 +16,7 @@
     <thead><tr>{{ sort_th("Charge", "id", result) }}{{ sort_th("Date", "created_at", result) }}{{ sort_th("Amount", "amount", result, "num") }}{{ sort_th("Refunded or pending", "refunded", result, "num") }}{{ sort_th("Refundable", "remaining", result, "num") }}<th></th></tr></thead>
     <tbody>
     {% for c in result["items"] %}<tr><td class="strong">#{{ c.id }}</td><td class="muted">{{ c.created_at | day }}</td><td class="num">{{ c.amount_cents | dollars }}</td><td class="num muted">{{ c.committed_cents | dollars }}</td><td class="num strong">{{ c.remaining_cents | dollars }}</td>
-      <td class="num">{% if user.can("refund:create") and c.remaining_cents > 0 %}<a class="btn sm" href="/refunds/new?charge_id={{ c.id }}">Refund</a>{% endif %}</td></tr>
+      <td class="num">{{ refund_action(c) }}</td></tr>
     {% else %}<tr><td colspan="6" class="empty">No charges.</td></tr>{% endfor %}
     </tbody>
   </table>

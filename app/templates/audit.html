@@ -19,7 +19,7 @@
     <tbody>
     {% for e in result["items"] %}{% set d = e | describe %}
     <tr><td class="muted" style="white-space:nowrap">{{ e.created_at | when }}</td><td class="strong">{{ e.actor }}</td>
-      <td>{% if d.link %}<a href="{{ d.link }}">{{ d.what | capitalize }}</a>{% else %}{{ d.what | capitalize }}{% endif %}
+      <td>{% if d.link %}<a href="{{ d.link }}">{{ d.what | ucfirst }}</a>{% else %}{{ d.what | ucfirst }}{% endif %}
         <details class="raw"><summary><span class="mono">{{ e.action }}</span> · event #{{ e.id }}</summary><pre>before: {{ e.before | tojson if e.before is not none else "none" }}
 after:  {{ e.after | tojson if e.after is not none else "none" }}</pre></details></td>
       <td class="small">{{ d.change }}</td><td class="wrap small">{{ e.reason or "" }}</td></tr>

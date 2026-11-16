@@ -79,8 +79,9 @@ def _picker(request, user, q=None, show=None, sort=None, direction=None, page_no
     with tx(request) as conn:
         result = customers.search_charges(conn, q, None, show != "all", None, sort, direction,
                                           page_no, page_size)
+        rules = settings.refund_rules(conn)
     return page(request, "charges.html", user, result=result, statuses=customers.KYC_STATUSES,
-                picker=True, show=show or "refundable")
+                picker=True, show=show or "refundable", rules=rules)
 
 
 def _form(request, user, charge_id, status_code=200, error=None, values=None):
@@ -88,10 +89,11 @@ def _form(request, user, charge_id, status_code=200, error=None, values=None):
         charge = customers.get_charge(conn, charge_id)
         reasons = settings.reason_options(conn, "reasons_refund_request")
         limit = settings.get_auto_approve_limit(conn)
+        rules = settings.refund_rules(conn)
     if charge is None:
         raise AppError(422, f"charge {charge_id} does not exist")
     return page(request, "refund_form.html", user, status_code=status_code, charge=charge,
-                reasons=reasons, limit_cents=limit, error=error, values=values or {})
+                reasons=reasons, limit_cents=limit, rules=rules, error=error, values=values or {})
 
 
 @router.get("/refunds/new", response_class=HTMLResponse)
