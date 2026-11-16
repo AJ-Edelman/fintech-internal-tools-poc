@@ -51,12 +51,13 @@ All have the password `demo`.
 | `approver1` | refund_approver | US | see customers (masked) and refunds, approve or reject |
 | `approver2` | refund_approver | EU | same as `approver1`, EU customers only |
 | `kyc1` | kyc_reviewer | US | see customers, see full SSN and account on customer detail, decide KYC |
+| `kyc2` | kyc_reviewer | EU | same as `kyc1`, EU customers only |
 | `limits1` | limits_agent | US | see customers and limit requests, request a higher daily limit |
 | `limits2` | limits_approver | US | see customers and limit requests, approve or reject them |
 | `admin1` | admin | ALL | users and access, audit log, settings, outbound messages and retry |
 
-Seeded customers 1 to 10 are US and 11 to 20 EU. KYC: 1 to 12 approved, 13 to 17 pending, 18 to 20
-rejected (so every pending customer is EU). Each customer has two charges; customers 1 to 10 have one
+Seeded customers 1 to 10 are US and 11 to 20 EU. KYC: 6 to 8 (US) and 13 to 17 (EU) pending, 18 to 20
+rejected, the rest approved. Each customer has two charges; customers 1 to 10 have one
 over $1,000. Every customer starts with a daily limit of $5,000.00.
 
 ## Demo walkthrough
@@ -81,9 +82,8 @@ over $1,000. Every customer starts with a daily limit of $5,000.00.
 5. **Region scope.** As `agent2` (EU), the customer and refund lists show only EU customers and their
    counts; opening a US customer or refund, e.g. `/customers/1`, returns 404, not 403. `approver2`
    cannot decide a US refund (404). `admin1`'s access review shows the region of each assignment.
-6. **KYC.** Pending customers are EU and `kyc1` is US, so as `admin1` first add a user (for example
-   `kyc2`, KYC reviewer, region EU) on the access page. Log in as that user, open the KYC queue
-   (masked), open customer 13 (full values, and the view is audited), approve with a reason.
+6. **KYC.** Log in as `kyc1` (US): the KYC queue lists only the US pending customers 6 to 8. Log in
+   as `kyc2` (EU), open the KYC queue (masked; only EU customers 13 to 17), open customer 13 (full values, and the view is audited), approve with a reason.
    `agent2` can now request a refund for customer 13.
 7. **Tool 3, limit overrides.** Log in as `limits1`, open the limit request form, and request a new
    daily limit above $5,000.00 (at most $50,000.00) for a KYC-approved US customer, with a reason:
