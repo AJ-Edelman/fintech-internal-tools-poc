@@ -386,3 +386,4 @@ final reports below.
 |---|---|---|
 | Fresh check | 8502c7f5a8824c1d9a59e8e77cfcb3f4 | No build context; make targets; try to break AC15 to AC24 at `cc84ed4` |
 | README | aebb860af75840cba6f19224f63ae30d | Branch `devin/s2-readme`, README.md only |
+- README worker own time 02:38:40 to 02:40:09; branch `devin/s2-readme` `58f2e5a` (README.md only) merged at 02:40, no conflicts. It noted: the seed has no US pending KYC customers, so the walkthrough adds an EU reviewer first; AC16 failure injection exists only in tests.
