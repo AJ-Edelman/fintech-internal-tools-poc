@@ -25,8 +25,8 @@
       {% if user.can("user:manage") %}<td>{% if u.id == user.id %}<div class="small muted" style="text-align:right">This is you</div>{% else %}
         <div class="row-actions" style="align-items:center">
           <form method="post" action="/admin/users/{{ u.id }}/roles" class="decide">
-            <select name="role_names" aria-label="Role for {{ u.username }}">{% for r in all_roles %}<option value="{{ r }}" {% if r in u.roles %}selected{% endif %}>{{ role_labels[r] }}</option>{% endfor %}<option value="" {% if not u.roles %}selected{% endif %}>No role</option></select>
-            <button class="btn sm" type="submit">Save role</button></form>
+            <span class="checks small">{% for r in all_roles %}<label><input type="checkbox" name="role_names" value="{{ r }}" {% if r in u.roles %}checked{% endif %}> {{ role_labels[r] }}</label>{% endfor %}</span>
+            <button class="btn sm" type="submit">Save roles</button></form>
           <form method="post" action="/admin/users/{{ u.id }}/active" class="inline-form"><input type="hidden" name="active" value="{{ '0' if u.active else '1' }}">
             <button class="btn sm {{ 'bad' if u.active }}" type="submit">{{ "Deactivate" if u.active else "Reactivate" }}</button></form>
         </div>{% endif %}</td>{% endif %}</tr>
