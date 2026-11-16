@@ -470,3 +470,31 @@ AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 84126)
 - 03:13:20: `make test-scale` exit 0, `4 passed, 1 warning in 3.87s`.
 - Stage 2 wall clock: 03:09:27 to 03:13:20. There were no merge conflicts: A, B and C touched disjoint files, plus my test_lists.py fixture change and the README AC table and Limitations.
 - Stage 3: at 03:13:21 I dispatched a fresh checker with no build context (session a536174fa62f472eac1de10517a41a4f) on `14993e4`.
+- 03:13:38 to 03:17:25: the fresh checker's own start and end. Its make targets, in order:
+```
+make setup                              exit 0  data/app.db: applied [1, 2, 3, 4, 5, 6, 7]; now at [1, 2, 3, 4, 5, 6, 7]
+make seed                               exit 0  seeded demo data into data/app.db
+make verify                             exit 0  395 passed, 4 skipped, 1 warning in 72.41s
+                                                AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 14098)
+rm -f data/scale.db && make seed-scale  exit 0  seeded 50000 refunds into data/scale.db: {'approved': 30000, 'pending_approval': 12500, 'rejected': 7500}
+make test-scale                         exit 0  4 passed, 1 warning in 3.43s
+```
+  It passed AC25, AC26, AC27, AC28 and AC29 with its own HTTP and SQL probes. No criterion failed, so I made no fixes.
+- Logged but not fixed, because none is a failed criterion:
+  - Self-approval in direct SQL with a case variant (`decided_by = upper(requested_by)`) is not blocked; the trigger compares exactly.
+  - Direct SQL can rename or delete the `auto_approve_limit_cents` row.
+  - The limit trigger accepts leading zeros (`'0500'`).
+  - A no-op change (reactivating an already active user) also needs a reason.
+  - The admin has no `kyc:review`, which is intended.
+  - The StarletteDeprecationWarning appears on every run.
+- CI on `14993e4`: success. Tag `review-fixes-done` is on `14993e4`, the commit the checker verified; later commits change only this log.
+- Cuts: none. 2(c) and fix 4 were both delivered.
+- BUILD_SPEC_3 end: 03:18 UTC. Nothing here was verified by a human.
+
+| Block | Start | End | Minutes | Active work |
+|---|---|---|---|---|
+| BUILD_SPEC_3 | 03:06 | 03:18 | 12 | yes (workers A, B and C ran in parallel from 03:07 to 03:10) |
+
+**Totals:**
+- Active work: 41 (first build) + 14 (feedback coding) + 27 (BUILD_SPEC_2) + 12 (BUILD_SPEC_3) = 94 minutes. The prototype-setup minutes after 01:40 are not recorded and are not included.
+- Wall clock from 00:49 to 03:18: 149 minutes.
