@@ -35,6 +35,7 @@ from the session usage pages.
 | First build (foundation + refunds + KYC) | 41 minutes of Devin time, 12 to the first tool (measured) |
 | Tool 2 on the foundation (KYC) | 2 minutes to first passing run, 28 with independent checks and fixes; about 100 lines of tool code (measured) |
 | Tool 3 on the foundation (limit overrides) | 2 minutes to first passing run; 314 lines of tool code; one foundation file changed (measured) |
+| Follow-up specs (connections, lists, record scope, tool 3; then review fixes) | 27 and 12 minutes, plus 14 minutes of product-feedback changes. Total active build time 94 minutes; 149 minutes on the clock from first to last commit (measured, from the build log) |
 | Human time | Writing and reviewing three specs and the product feedback. Not timed. This, not Devin's minutes, is the real build cost |
 | Production foundation | Not measured. Needs SSO and MFA, hosting, backups, encryption, retention, monitoring, real integrations |
 | Migration of the three live tools and their data | Not measured |
@@ -57,8 +58,8 @@ more than about one engineer's time a year, building costs more than buying befo
 ## Security
 
 - **Shown in the prototype:** server-side permission checks on every route, PII masked by role with
-  audited reveals, no self-approval, refund cap enforced in the database, append-only audit enforced in
-  the database, region-scoped records, CI on every push.
+  audited reveals, no self-approval, the refund cap, the KYC rule and the $750 limit cap enforced in the database,
+  append-only audit enforced in the database, region-scoped records, CI on every push.
 - **What the checks caught:** fresh Devin sessions with no build context found two real SSN leaks into
   the audit log, and a later review found admin changes that weaken controls with no reason recorded.
   Generated code needs independent review; that review worked here, and it is a standing cost.
