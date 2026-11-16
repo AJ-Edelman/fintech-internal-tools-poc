@@ -14,10 +14,11 @@ if __name__ == "__main__":
         sys.exit(f"{path} does not exist; run `make setup && make seed` first")
     con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     rows = con.execute(
-        "SELECT u.username, ra.role FROM role_assignment ra JOIN app_user u ON u.id = ra.user_id "
+        "SELECT u.username, ra.role, ra.region FROM role_assignment ra JOIN app_user u ON u.id = ra.user_id "
         "ORDER BY u.username, ra.role"
     ).fetchall()
-    print(f"{'USER':<14}{'ROLE':<18}PERMISSIONS")
-    for username, role in rows:
-        print(f"{username:<14}{role:<18}{', '.join(sorted(ROLE_PERMISSIONS.get(role, [])))}")
+    print(f"{'USER':<14}{'ROLE':<18}{'REGION':<8}PERMISSIONS")
+    for username, role, region in rows:
+        region = "ALL" if role == "admin" else region
+        print(f"{username:<14}{role:<18}{region:<8}{', '.join(sorted(ROLE_PERMISSIONS.get(role, [])))}")
     print(f"{len(rows)} role assignment(s) in {path}")

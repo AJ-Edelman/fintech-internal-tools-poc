@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from . import settings
 from .db import utcnow
 from .errors import AppError
-from .permissions import permissions_for
+from .permissions import ROLE_PERMISSIONS, permissions_for
 
 COOKIE = "session"
 _ITERATIONS = 20_000
@@ -38,17 +38,30 @@ class User:
         return permission in self.permissions
 
 
-def create_user(conn, username: str, password: str, roles=()) -> int:
+def scopes_for(assignments) -> dict:
+    """permission -> frozenset of regions, from (role, region) pairs. `admin` permissions are ALL."""
+    out: dict[str, set] = {}
+    for role, region in assignments:
+        for perm in ROLE_PERMISSIONS.get(role, frozenset()):
+            out.setdefault(perm, set()).add("ALL" if role == "admin" else region)
+    return {perm: frozenset(regions) for perm, regions in out.items()}
+
+
+def create_user(conn, username: str, password: str, roles=(), region: str = "ALL") -> int:
     salt, digest = hash_password(password)
     user_id = conn.execute(
         text("INSERT INTO app_user (username, password_salt, password_hash) VALUES (:u, :s, :h)"),
         {"u": username, "s": salt, "h": digest},
     ).lastrowid
     for role in roles:
-        conn.execute(
-            text("INSERT INTO role_assignment (user_id, role) VALUES (:u, :r)"),
-            {"u": user_id, "r": role},
-        )
+        if region == "ALL":  # column default; also works on databases before migration 003
+            conn.execute(text("INSERT INTO role_assignment (user_id, role) VALUES (:u, :r)"),
+                         {"u": user_id, "r": role})
+        else:
+            conn.execute(
+                text("INSERT INTO role_assignment (user_id, role, region) VALUES (:u, :r, :g)"),
+                {"u": user_id, "r": role, "g": region},
+            )
     return user_id
 
 
@@ -100,14 +113,16 @@ def user_from_request(request: Request) -> User | None:
             return None
         conn.execute(text("UPDATE user_session SET last_seen_at = :n WHERE token = :t"),
                      {"n": utcnow(), "t": token})
-        roles = tuple(
-            r[0]
+        assignments = [
+            (r[0], r[1])
             for r in conn.execute(
-                text("SELECT role FROM role_assignment WHERE user_id = :u ORDER BY role"),
+                text("SELECT role, region FROM role_assignment WHERE user_id = :u ORDER BY role"),
                 {"u": row.id},
             )
-        )
-    return User(id=row.id, username=row.username, roles=roles, permissions=permissions_for(roles))
+        ]
+    roles = tuple(sorted({role for role, _ in assignments}))
+    return User(id=row.id, username=row.username, roles=roles, permissions=permissions_for(roles),
+                scopes=scopes_for(assignments))
 
 
 def require(*permissions: str):
