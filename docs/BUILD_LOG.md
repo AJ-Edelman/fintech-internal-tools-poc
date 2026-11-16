@@ -497,4 +497,3 @@ make test-scale                         exit 0  4 passed, 1 warning in 3.43s
 
 **Totals:**
 - Active work: 41 (first build) + 14 (feedback coding) + 27 (BUILD_SPEC_2) + 12 (BUILD_SPEC_3) = 94 minutes. The prototype-setup minutes after 01:40 are not recorded and are not included.
-- Wall clock from 00:49 to 03:18: 149 minutes.
