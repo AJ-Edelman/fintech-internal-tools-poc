@@ -1,8 +1,0 @@
-<table>
-<tr><th>ID</th><th>Charge</th><th>Amount</th><th>Status</th><th>Requested by</th><th>Decided by</th><th>Reason</th><th>Created (UTC)</th></tr>
-{% for r in result["items"] %}
-<tr><td><a href="/refunds/{{ r.id }}">{{ r.id }}</a></td><td>{{ r.charge_id }}</td><td>{{ r.amount_cents | dollars }}</td>
-<td>{{ r.status }}</td><td>{{ r.requested_by }}</td><td>{{ r.decided_by or "" }}</td><td>{{ r.reason }}</td><td>{{ r.created_at }}</td></tr>
-{% else %}<tr><td colspan="8">No refunds.</td></tr>
-{% endfor %}
-</table>

@@ -1,5 +1,6 @@
 """Demo seed (`make seed`) and scale seed (`make seed-scale`). Synthetic data only."""
 import argparse
+from datetime import datetime, timedelta, timezone
 import sqlite3
 import sys
 
@@ -95,19 +96,24 @@ def seed_demo(path: str) -> bool:
             # Two charges per customer; the first ten customers also hold one over $1,000.
             for index, customer_id in enumerate(customer_ids):
                 first = 150_000 + index * 12_500 if index < 10 else 4_500 + index * 700
-                for amount in (first, 2_000 + index * 1_150):
+                for n, amount in enumerate((first, 2_000 + index * 1_150)):
+                    # Spread over the last 110 days so sorting by date and the refund-age limit show up.
+                    age = timedelta(days=(index * 11 + n * 5) % 110, hours=index * 3 + n)
                     conn.execute(
                         text("INSERT INTO charge (customer_id, amount_cents, created_at) VALUES (:c, :a, :t)"),
-                        {"c": customer_id, "a": amount, "t": now},
+                        {"c": customer_id, "a": amount,
+                         "t": (datetime.now(timezone.utc) - age).strftime("%Y-%m-%dT%H:%M:%S.%fZ")},
                     )
             # A few refunds through the real workflow, so they carry audit events.
             from app.refunds.workflow import request_refund
 
             agent = User(id=0, username="agent1", roles=("refund_agent",),
                          permissions=permissions_for(["refund_agent"]))
-            request_refund(conn, agent, 1, 2_500, "Duplicate charge (seed)")
-            request_refund(conn, agent, 3, 75_000, "Service not delivered (seed)")
-            request_refund(conn, agent, 5, 120_000, "Customer cancelled within window (seed)")
+            request_refund(conn, agent, 1, 2_500, "Duplicate charge")
+            request_refund(conn, agent, 3, 75_000, "Product not received")
+            request_refund(conn, agent, 5, 120_000, "Cancelled order or subscription")
+            request_refund(conn, agent, 7, 64_000, "Billing error or wrong amount")
+            request_refund(conn, agent, 9, 98_500, "Product defective or not as described")
             write_audit(conn, actor="system", action="seed.demo", entity="database", entity_id="demo",
                         after={"customers": 20, "charges": 40, "users": len(DEMO_USERS)},
                         reason="make seed")

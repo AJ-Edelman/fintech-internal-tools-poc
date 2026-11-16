@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_ui.html" import sort_th, pager, search, status_badge with context %}
+{% block title %}{{ "Request refund" if picker else "Charges" }}{% endblock %}
+{% block body %}
+<div class="head"><div>
+  {% if picker %}<div class="crumb"><a href="/refunds">Refunds</a> / Request refund</div><h1>Request a refund</h1>
+  <p>Step 1 of 2: find the charge. Search by customer, email or charge ID, and sort by any column.</p>
+  {% else %}<h1>Charges</h1><p>Card charges on customer accounts, with what has already been refunded.</p>{% endif %}
+</div></div>
+<div class="card">
+  <div class="toolbar">
+    <div class="chips">
+      <a class="chip {{ 'on' if show == 'refundable' }}" href="{{ qs(show='refundable') }}">Refundable balance</a>
+      <a class="chip {{ 'on' if show == 'all' }}" href="{{ qs(show='all') }}">All charges</a>
+    </div>
+    {% if not picker %}<form method="get" style="margin:0">{% for k in ("q", "show", "sort", "dir") %}{% if request.query_params.get(k) %}<input type="hidden" name="{{ k }}" value="{{ request.query_params.get(k) }}">{% endif %}{% endfor %}
+      <select name="kyc_status" onchange="this.form.submit()" aria-label="KYC status"><option value="">Any KYC status</option>{% for s in statuses %}<option value="{{ s }}" {% if result.kyc_status == s %}selected{% endif %}>KYC {{ s }}</option>{% endfor %}</select></form>{% endif %}
+    <span class="grow"></span>
+    {{ search(result, "Search customer, email or charge ID", {"show": show, "kyc_status": result.kyc_status}) }}
+  </div>
+  <table class="t">
+    <thead><tr>{{ sort_th("Charge", "id", result) }}{{ sort_th("Customer", "customer", result) }}{{ sort_th("KYC", "kyc_status", result) }}{{ sort_th("Date", "created_at", result) }}{{ sort_th("Amount", "amount", result, "num") }}{{ sort_th("Refunded or pending", "refunded", result, "num") }}{{ sort_th("Refundable", "remaining", result, "num") }}<th></th></tr></thead>
+    <tbody>
+    {% for c in result["items"] %}
+    <tr><td class="strong">#{{ c.id }}</td><td><a href="/customers/{{ c.customer_id }}">{{ c.customer_name }}</a></td><td>{{ status_badge(c.kyc_status) }}</td>
+      <td class="muted">{{ c.created_at | day }}</td><td class="num">{{ c.amount_cents | dollars }}</td><td class="num muted">{{ c.committed_cents | dollars }}</td>
+      <td class="num strong">{{ c.remaining_cents | dollars }}</td>
+      <td class="num">{% if user.can("refund:create") and c.remaining_cents > 0 %}<a class="btn sm {{ 'primary' if picker }}" href="/refunds/new?charge_id={{ c.id }}">Refund</a>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="8" class="empty">No charges match.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
+{% endblock %}

@@ -1,6 +1,6 @@
 """Shared web plumbing: app factory pieces, templates, error rendering, foundation routes."""
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -8,23 +8,66 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, StrictInt
 
-from . import audit, auth, customers, settings
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
+
+from . import audit, auth, customers, settings, users
 from .auth import User, require
 from .errors import AppError
-from .permissions import ALL_PERMISSIONS
+from .listing import MAX_PAGE_SIZE
+from .permissions import ALL_PERMISSIONS, ROLE_LABELS, ROLE_PERMISSIONS, role_label
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
 templates.env.filters["dollars"] = lambda cents: f"${cents / 100:,.2f}"
 
-# Links shown in the nav, each only to callers holding its permission.
-NAV: list[tuple[str, str, str]] = [
-    ("/refunds", "Refunds", "refund:read"),
-    ("/refunds/new", "Request refund", "refund:create"),
-    ("/refunds/queue", "Approval queue", "refund:approve"),
-    ("/customers", "Customers", "customer:read"),
-    ("/admin/settings", "Settings", "settings:write"),
-    ("/admin/access-review", "Access review", "access_review:read"),
-    ("/admin/audit", "Audit log", "audit:read"),
+
+
+def _when(value: str | None) -> str:
+    """'2026-11-15T20:39:01.123Z' -> 'Nov 15, 2026, 8:39 PM UTC'."""
+    if not value:
+        return ""
+    try:
+        parsed = datetime.strptime(value.replace(" ", "T")[:19], "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return value
+    return f"{parsed:%b} {parsed.day}, {parsed.year}, {parsed.hour % 12 or 12}:{parsed:%M %p} UTC"
+
+
+def _day(value: str | None) -> str:
+    return _when(value).rsplit(",", 1)[0] if value else ""
+
+
+templates.env.filters["when"] = _when
+templates.env.filters["day"] = _day
+templates.env.filters["role_label"] = role_label
+templates.env.filters["words"] = lambda value: str(value).replace("_", " ").capitalize()
+templates.env.filters["describe"] = audit.describe
+
+
+def to_cents(amount: str, what: str = "amount") -> int:
+    """Parse dollars typed by a person ('1,250.50', '$12') into cents."""
+    cleaned = (amount or "").strip().replace("$", "").replace(",", "")
+    if not cleaned or not all(ch.isdigit() or ch == "." for ch in cleaned):
+        raise AppError(422, f"{what} must be a number of dollars, e.g. 12.34")
+    try:
+        cents = Decimal(cleaned) * 100
+    except InvalidOperation:
+        raise AppError(422, f"{what} must be a number of dollars, e.g. 12.34")
+    if cents != cents.to_integral_value():
+        raise AppError(422, f"{what} cannot have fractions of a cent")
+    return int(cents)
+
+
+# Links shown in the nav, each only to callers holding its permission: (href, label, permission, section).
+NAV: list[tuple[str, str, str, str]] = [
+    ("/refunds", "Refunds", "refund:read", "Refunds"),
+    ("/refunds/new", "Request refund", "refund:create", "Refunds"),
+    ("/refunds/queue", "Approval queue", "refund:approve", "Refunds"),
+    ("/customers", "Customers", "customer:read", "Customers"),
+    ("/charges", "Charges", "customer:read", "Customers"),
+    ("/admin/settings", "Settings", "settings:write", "Admin"),
+    ("/admin/access-review", "Users & access", "access_review:read", "Admin"),
+    ("/admin/audit", "Audit log", "audit:read", "Admin"),
 ]
 
 
@@ -32,10 +75,33 @@ def is_api(request: Request) -> bool:
     return request.url.path.startswith("/api/")
 
 
+def _qs(request: Request, **changes) -> str:
+    """The current query string with `changes` applied; any change but `page` goes back to page 1."""
+    params = dict(request.query_params)
+    if "page" not in changes:
+        params.pop("page", None)
+    for key in ("done", "id"):
+        params.pop(key, None)
+    for key, value in changes.items():
+        if value in (None, ""):
+            params.pop(key, None)
+        else:
+            params[key] = str(value)
+    return "?" + urlencode(params)
+
+
 def page(request: Request, name: str, user: User | None, status_code: int = 200, **ctx):
-    nav = [(href, label) for href, label, perm in NAV if user and perm in user.permissions]
+    visible = [entry for entry in NAV if user and entry[2] in user.permissions]
+    path = request.url.path
+    active = max((e[0] for e in visible if path == e[0] or path.startswith(e[0] + "/")),
+                 key=len, default=None)
+    sections: dict[str, list] = {}
+    for href, label, _perm, section in visible:
+        sections.setdefault(section, []).append((href, label, href == active))
     return templates.TemplateResponse(
-        request, name, {"user": user, "nav": nav, **ctx}, status_code=status_code
+        request, name,
+        {"user": user, "nav": sections, "qs": lambda **changes: _qs(request, **changes), **ctx},
+        status_code=status_code,
     )
 
 
@@ -71,6 +137,9 @@ def install_error_handlers(app) -> None:
 
 
 router = APIRouter()
+ANY = tuple(sorted(ALL_PERMISSIONS))
+Page = Query(1, ge=1)
+PageSize = Query(25, ge=1, le=MAX_PAGE_SIZE)
 
 
 def _safe_next(target: str | None) -> str:
@@ -111,20 +180,40 @@ def api_login(request: Request, body: LoginBody):
     return response
 
 
+def _end_session(request: Request, response):
+    with tx(request) as conn:
+        auth.logout(conn, request.cookies.get(auth.COOKIE))
+    response.delete_cookie(auth.COOKIE)
+    return response
+
+
+@router.post("/logout")
+def logout(request: Request, user: User = Depends(require(*ANY))):
+    return _end_session(request, RedirectResponse("/login", status_code=303))
+
+
+@router.post("/api/logout")
+def api_logout(request: Request, user: User = Depends(require(*ANY))):
+    return _end_session(request, JSONResponse({"logged_out": True}))
+
+
 @router.get("/")
-def landing(request: Request, user: User = Depends(require(*sorted(ALL_PERMISSIONS)))):
-    for href, _label, perm in NAV:
+def landing(request: Request, user: User = Depends(require(*ANY))):
+    for href, _label, perm, _section in NAV:
         if perm in user.permissions:
             return RedirectResponse(href, status_code=303)
     raise AppError(403, "permission denied")
 
 
-# --- customers (shared model) -------------------------------------------------
+# --- customers and charges (shared model) -----------------------------------------
 
 @router.get("/api/customers")
-def api_customers(request: Request, user: User = Depends(require("customer:read"))):
+def api_customers(request: Request, q: str | None = None, kyc_status: str | None = None,
+                  sort: str | None = None, dir: str | None = None, page: int = Page,
+                  page_size: int = Query(MAX_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+                  user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
-        return {"items": customers.list_customers(conn)}
+        return customers.search_customers(conn, q, kyc_status or None, sort, dir, page, page_size)
 
 
 @router.get("/api/customers/{customer_id}")
@@ -134,32 +223,63 @@ def api_customer(request: Request, customer_id: int, user: User = Depends(requir
 
 
 @router.get("/api/charges")
-def api_charges(request: Request, customer_id: int | None = None,
+def api_charges(request: Request, customer_id: int | None = None, q: str | None = None,
+                refundable: bool = False, kyc_status: str | None = None, sort: str | None = None,
+                dir: str | None = None, page: int = Page,
+                page_size: int = Query(MAX_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
                 user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
-        return {"items": customers.list_charges(conn, customer_id)}
+        return customers.search_charges(conn, q, customer_id, refundable, kyc_status or None,
+                                        sort or "id", dir or "asc", page, page_size)
 
 
 @router.get("/customers", response_class=HTMLResponse)
-def customers_page(request: Request, user: User = Depends(require("customer:read"))):
+def customers_page(request: Request, q: str | None = None, kyc_status: str | None = None,
+                   sort: str | None = None, dir: str | None = None, page_no: int = Query(1, ge=1, alias="page"),
+                   page_size: int = PageSize, user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
-        items = customers.list_customers(conn)
-    return page(request, "customers.html", user, customers=items)
+        result = customers.search_customers(conn, q, kyc_status or None, sort, dir, page_no, page_size)
+    return page(request, "customers.html", user, result=result, statuses=customers.KYC_STATUSES)
+
+
+@router.get("/charges", response_class=HTMLResponse)
+def charges_page(request: Request, q: str | None = None, show: str | None = None,
+                 kyc_status: str | None = None, sort: str | None = None, dir: str | None = None,
+                 page_no: int = Query(1, ge=1, alias="page"), page_size: int = PageSize,
+                 user: User = Depends(require("customer:read"))):
+    with tx(request) as conn:
+        result = customers.search_charges(conn, q, None, show == "refundable", kyc_status or None,
+                                          sort, dir, page_no, page_size)
+    return page(request, "charges.html", user, result=result, statuses=customers.KYC_STATUSES,
+                picker=False, show=show or "all")
 
 
 @router.get("/customers/{customer_id}", response_class=HTMLResponse)
-def customer_page(request: Request, customer_id: int, user: User = Depends(require("customer:read"))):
+def customer_page(request: Request, customer_id: int, q: str | None = None, sort: str | None = None,
+                  dir: str | None = None, page_no: int = Query(1, ge=1, alias="page"),
+                  page_size: int = PageSize, user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
         customer = customers.get_customer(conn, customer_id, user)
-        charges = customers.list_charges(conn, customer_id)
-    return page(request, "customer_detail.html", user, customer=customer, charges=charges)
+        result = customers.search_charges(conn, q, customer_id, False, None, sort, dir, page_no, page_size)
+    return page(request, "customer_detail.html", user, customer=customer, result=result)
 
 
-# --- admin: settings, access review, audit ---------------------------------------
+# --- admin: settings ------------------------------------------------------------------
 
 class LimitBody(BaseModel):
     value_cents: StrictInt
-    reason: str
+    reason: str | None = None
+
+
+class SettingBody(BaseModel):
+    value: StrictInt | bool | list[str] | None = None
+
+
+@router.get("/api/settings")
+def api_settings(request: Request, user: User = Depends(require("settings:write"))):
+    with tx(request) as conn:
+        return {"items": [{"key": s["spec"].key, "label": s["spec"].label, "value": s["value"]}
+                          for s in settings.all_settings(conn)]}
 
 
 @router.get("/api/settings/auto-approve-limit")
@@ -176,10 +296,23 @@ def api_set_limit(request: Request, body: LimitBody, user: User = Depends(requir
     return {"value_cents": value, "max_cents": settings.AUTO_APPROVE_LIMIT_MAX_CENTS}
 
 
-def _settings_page(request, user, status_code=200, error=None, saved=False):
+@router.put("/api/settings/{key}")
+def api_set_setting(request: Request, key: str, body: SettingBody,
+                    user: User = Depends(require("settings:write"))):
     with tx(request) as conn:
-        value = settings.get_auto_approve_limit(conn)
-    return page(request, "settings.html", user, status_code=status_code, value_cents=value,
+        return {"key": key, "value": settings.set_value(conn, user, key, body.value)}
+
+
+def _settings_page(request, user, status_code=200, error=None, saved=None):
+    with tx(request) as conn:
+        items = settings.all_settings(conn)
+        for item in items:
+            events = [e for e in audit.history(conn, "setting", item["spec"].key)]
+            item["last"] = audit.describe(events[-1]) if events else None
+    groups: dict[str, list] = {}
+    for item in items:
+        groups.setdefault(item["spec"].group, []).append(item)
+    return page(request, "settings.html", user, status_code=status_code, groups=groups,
                 max_cents=settings.AUTO_APPROVE_LIMIT_MAX_CENTS, error=error, saved=saved)
 
 
@@ -188,21 +321,73 @@ def settings_page(request: Request, user: User = Depends(require("settings:write
     return _settings_page(request, user)
 
 
-@router.post("/admin/settings", response_class=HTMLResponse)
-def settings_submit(request: Request, value_cents: str = Form(""), reason: str = Form(""),
-                    user: User = Depends(require("settings:write"))):
+def _parse_setting(spec: settings.Spec, raw: str):
+    raw = (raw or "").strip()
+    if spec.kind == "cents":
+        return to_cents(raw, spec.label.lower())
+    if spec.kind == "bool":
+        return raw == "on"
+    if spec.kind == "list":
+        return [line.strip() for line in raw.splitlines() if line.strip()]
+    if spec.kind == "optional_int" and not raw:
+        return None
     try:
-        try:
-            value = int(value_cents.strip())
-        except ValueError:
-            raise AppError(422, "limit must be a whole number of cents")
+        return int(raw)
+    except ValueError:
+        raise AppError(422, f"{spec.label} must be a whole number")
+
+
+@router.post("/admin/settings", response_class=HTMLResponse)
+def settings_submit(request: Request, amount: str = Form(""), value_cents: str = Form(""),
+                    reason: str = Form(""), user: User = Depends(require("settings:write"))):
+    """The auto-approve limit, typed in dollars (`amount`); `value_cents` is still accepted."""
+    try:
+        if value_cents.strip():
+            try:
+                value = int(value_cents.strip())
+            except ValueError:
+                raise AppError(422, "limit must be a whole number of cents")
+        else:
+            value = to_cents(amount, "limit")
         with tx(request) as conn:
             settings.set_auto_approve_limit(conn, user, value, reason)
     except AppError as exc:
         if exc.status != 422:
             raise
         return _settings_page(request, user, status_code=422, error=exc.detail)
-    return _settings_page(request, user, saved=True)
+    return _settings_page(request, user, saved=settings.SPECS[settings.AUTO_APPROVE_LIMIT].label)
+
+
+@router.post("/admin/settings/{key}", response_class=HTMLResponse)
+def setting_submit(request: Request, key: str, value: str = Form(""),
+                   user: User = Depends(require("settings:write"))):
+    spec = settings.SPECS.get(key)
+    if spec is None:
+        raise AppError(404, f"setting {key} not found")
+    try:
+        with tx(request) as conn:
+            settings.set_value(conn, user, key, _parse_setting(spec, value))
+    except AppError as exc:
+        if exc.status != 422:
+            raise
+        return _settings_page(request, user, status_code=422, error=exc.detail)
+    return _settings_page(request, user, saved=spec.label)
+
+
+# --- admin: users and access ----------------------------------------------------------
+
+class NewUserBody(BaseModel):
+    username: str
+    password: str
+    role_names: list[str] = []
+
+
+class RolesBody(BaseModel):
+    role_names: list[str]
+
+
+class ActiveBody(BaseModel):
+    active: bool
 
 
 @router.get("/api/access-review")
@@ -211,25 +396,108 @@ def api_access_review(request: Request, user: User = Depends(require("access_rev
         return {"assignments": customers.role_assignments(conn)}
 
 
-@router.get("/admin/access-review", response_class=HTMLResponse)
-def access_review_page(request: Request, user: User = Depends(require("access_review:read"))):
+@router.get("/api/users")
+def api_users(request: Request, q: str | None = None, role: str | None = None, status: str | None = None,
+              sort: str | None = None, dir: str | None = None, page: int = Page,
+              page_size: int = Query(MAX_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+              user: User = Depends(require("access_review:read"))):
     with tx(request) as conn:
-        rows = customers.role_assignments(conn)
-    return page(request, "access_review.html", user, assignments=rows)
+        return users.list_users(conn, q, role or None, status or None, sort, dir, page, page_size)
 
+
+@router.post("/api/users", status_code=201)
+def api_add_user(request: Request, body: NewUserBody, user: User = Depends(require("user:manage"))):
+    with tx(request) as conn:
+        return users.add_user(conn, user, body.username, body.password, body.role_names)
+
+
+@router.put("/api/users/{user_id}/roles")
+def api_set_roles(request: Request, user_id: int, body: RolesBody,
+                  user: User = Depends(require("user:manage"))):
+    with tx(request) as conn:
+        return users.set_roles(conn, user, user_id, body.role_names)
+
+
+@router.put("/api/users/{user_id}/active")
+def api_set_active(request: Request, user_id: int, body: ActiveBody,
+                   user: User = Depends(require("user:manage"))):
+    with tx(request) as conn:
+        return users.set_active(conn, user, user_id, body.active)
+
+
+def _access_page(request, user, status_code=200, error=None, saved=None, **filters):
+    with tx(request) as conn:
+        result = users.list_users(conn, **filters) if filters else users.list_users(conn)
+        overview = users.role_overview(conn)
+    return page(request, "access_review.html", user, status_code=status_code, result=result,
+                overview=overview, role_labels=ROLE_LABELS, all_roles=list(ROLE_PERMISSIONS),
+                error=error, saved=saved, min_password=users.MIN_PASSWORD)
+
+
+@router.get("/admin/access-review", response_class=HTMLResponse)
+def access_review_page(request: Request, q: str | None = None, role: str | None = None,
+                       status: str | None = None, sort: str | None = None, dir: str | None = None,
+                       page_no: int = Query(1, ge=1, alias="page"), page_size: int = PageSize,
+                       saved: str | None = None, user: User = Depends(require("access_review:read"))):
+    return _access_page(request, user, saved=saved, q=q, role=role or None, status=status or None,
+                        sort=sort, direction=dir, page=page_no, page_size=page_size)
+
+
+def _user_action(request, user, action):
+    try:
+        with tx(request) as conn:
+            changed = action(conn)
+    except AppError as exc:
+        if exc.status != 422:
+            raise
+        return _access_page(request, user, status_code=422, error=exc.detail)
+    return RedirectResponse("/admin/access-review?saved=" + quote(changed["username"]), status_code=303)
+
+
+@router.post("/admin/users", response_class=HTMLResponse)
+def add_user_submit(request: Request, username: str = Form(""), password: str = Form(""),
+                    role_names: list[str] = Form([]), user: User = Depends(require("user:manage"))):
+    return _user_action(request, user,
+                        lambda conn: users.add_user(conn, user, username, password, role_names))
+
+
+@router.post("/admin/users/{user_id}/roles", response_class=HTMLResponse)
+def set_roles_submit(request: Request, user_id: int, role_names: list[str] = Form([]),
+                     user: User = Depends(require("user:manage"))):
+    return _user_action(request, user, lambda conn: users.set_roles(conn, user, user_id, role_names))
+
+
+@router.post("/admin/users/{user_id}/active", response_class=HTMLResponse)
+def set_active_submit(request: Request, user_id: int, active: str = Form(""),
+                      user: User = Depends(require("user:manage"))):
+    return _user_action(request, user,
+                        lambda conn: users.set_active(conn, user, user_id, active == "1"))
+
+
+# --- admin: audit ---------------------------------------------------------------------
 
 @router.get("/api/audit")
 def api_audit(request: Request, entity: str | None = None, entity_id: str | None = None,
+              q: str | None = None, actor: str | None = None, action: str | None = None,
               limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0),
               user: User = Depends(require("audit:read"))):
     with tx(request) as conn:
         if entity and entity_id:
             return {"items": audit.history(conn, entity, entity_id)}
+        if q or actor or action or entity:
+            found = audit.search(conn, q, actor, action, entity, page=offset // limit + 1, page_size=limit)
+            return {"items": found["items"], "total": found["total"]}
         return {"items": audit.recent(conn, limit, offset)}
 
 
 @router.get("/admin/audit", response_class=HTMLResponse)
-def audit_page(request: Request, user: User = Depends(require("audit:read"))):
+def audit_page(request: Request, q: str | None = None, actor: str | None = None,
+               action: str | None = None, entity: str | None = None, date_from: str | None = None,
+               date_to: str | None = None, sort: str | None = None, dir: str | None = None,
+               page_no: int = Query(1, ge=1, alias="page"), page_size: int = Query(50, ge=1, le=500),
+               user: User = Depends(require("audit:read"))):
     with tx(request) as conn:
-        events = audit.recent(conn, 200)
-    return page(request, "audit.html", user, events=events)
+        result = audit.search(conn, q, actor or None, action or None, entity or None, date_from or None,
+                              date_to or None, sort, dir, page_no, page_size)
+        facets = audit.facets(conn)
+    return page(request, "audit.html", user, result=result, facets=facets)

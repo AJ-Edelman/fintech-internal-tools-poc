@@ -1,9 +1,55 @@
 {% extends "base.html" %}
-{% block title %}Access review{% endblock %}
+{% from "_ui.html" import sort_th, pager, search with context %}
+{% block title %}Users & access{% endblock %}
 {% block body %}
-<h1>Access review</h1>
-<table>
-<tr><th>User</th><th>Role</th></tr>
-{% for a in assignments %}<tr><td>{{ a.username }}</td><td>{{ a.role }}</td></tr>{% endfor %}
-</table>
+<div class="head"><div><h1>Users &amp; access</h1><p>Who can sign in, what role they hold, and what that role lets them do.</p></div></div>
+{% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+{% if saved %}<div class="alert ok">Saved changes for {{ saved }}.</div>{% endif %}
+<div class="card">
+  <div class="card-h"><div><h2>People</h2><p>Role changes apply on the user's next click. Deactivated users are kept so the audit log still points at them.</p></div></div>
+  <div class="toolbar">
+    <form method="get" style="display:flex;gap:8px;margin:0">{% if result.q %}<input type="hidden" name="q" value="{{ result.q }}">{% endif %}
+      <select name="role" onchange="this.form.submit()" aria-label="Role"><option value="">Any role</option>{% for r in all_roles %}<option value="{{ r }}" {% if result.role == r %}selected{% endif %}>{{ role_labels[r] }}</option>{% endfor %}</select>
+      <select name="status" onchange="this.form.submit()" aria-label="Status"><option value="">Active and inactive</option><option value="active" {% if result.status == "active" %}selected{% endif %}>Active</option><option value="inactive" {% if result.status == "inactive" %}selected{% endif %}>Inactive</option></select>
+    </form>
+    <span class="grow"></span>{{ search(result, "Search username or role", {"role": result.role, "status": result.status}) }}
+  </div>
+  <table class="t">
+    <thead><tr>{{ sort_th("User", "username", result) }}<th>Role</th><th>Can</th>{{ sort_th("Status", "status", result) }}{% if user.can("user:manage") %}<th style="text-align:right">Change access</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for u in result["items"] %}
+    <tr><td><div style="display:flex;gap:10px;align-items:center"><span class="avatar">{{ u.username[:2] }}</span><span class="strong">{{ u.username }}</span></div></td>
+      <td>{% for label in u.role_labels %}<span class="tag">{{ label }}</span>{% else %}<span class="muted">No role</span>{% endfor %}</td>
+      <td class="small">{{ u.can | join("; ") or "Nothing" }}</td>
+      <td>{% if u.active %}<span class="badge b-ok">Active</span>{% else %}<span class="badge b-neutral">Inactive</span>{% endif %}</td>
+      {% if user.can("user:manage") %}<td>{% if u.id == user.id %}<div class="small muted" style="text-align:right">This is you</div>{% else %}
+        <div class="row-actions" style="align-items:center">
+          <form method="post" action="/admin/users/{{ u.id }}/roles" class="decide">
+            <select name="role_names" aria-label="Role for {{ u.username }}">{% for r in all_roles %}<option value="{{ r }}" {% if r in u.roles %}selected{% endif %}>{{ role_labels[r] }}</option>{% endfor %}<option value="" {% if not u.roles %}selected{% endif %}>No role</option></select>
+            <button class="btn sm" type="submit">Save role</button></form>
+          <form method="post" action="/admin/users/{{ u.id }}/active" class="inline-form"><input type="hidden" name="active" value="{{ '0' if u.active else '1' }}">
+            <button class="btn sm {{ 'bad' if u.active }}" type="submit">{{ "Deactivate" if u.active else "Reactivate" }}</button></form>
+        </div>{% endif %}</td>{% endif %}</tr>
+    {% else %}<tr><td colspan="5" class="empty">No users match.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
+<div class="grid g2">
+  <div class="card"><div class="card-h"><div><h2>Roles</h2><p>What each role allows, and who holds it.</p></div></div>
+    <table class="t"><thead><tr><th>Role</th><th>Can</th><th>Held by</th></tr></thead><tbody>
+    {% for r in overview %}<tr><td class="strong">{{ r.label }}</td><td class="small">{{ r.can | join("; ") }}</td><td>{% for h in r.holders %}<span class="tag">{{ h }}</span>{% else %}<span class="muted">Nobody</span>{% endfor %}</td></tr>{% endfor %}
+    </tbody></table></div>
+  {% if user.can("user:manage") %}
+  <div class="card"><div class="card-h"><div><h2>Add a user</h2><p>They sign in with this password; share it with them directly.</p></div></div><div class="card-b">
+    <form method="post" action="/admin/users">
+      <div class="field"><label for="nu">Username</label><input id="nu" name="username" required pattern="[a-z][a-z0-9_.\-]{2,31}" placeholder="e.g. jsmith"><div class="hint">Lowercase letters, digits, dot, dash or underscore.</div></div>
+      <div class="field"><label for="np">Starting password</label><input id="np" name="password" type="password" required minlength="{{ min_password }}"><div class="hint">At least {{ min_password }} characters.</div></div>
+      <div class="field"><label>Role</label><div class="checks">{% for r in all_roles %}<label><input type="checkbox" name="role_names" value="{{ r }}"> {{ role_labels[r] }}</label>{% endfor %}</div>
+        <div class="hint">Someone with both refund roles still cannot approve their own requests.</div></div>
+      <button class="btn primary" type="submit">Add user</button>
+    </form>
+  </div></div>
+  {% endif %}
+</div>
 {% endblock %}

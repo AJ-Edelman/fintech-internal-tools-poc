@@ -1,17 +1,28 @@
 {% extends "base.html" %}
+{% from "_ui.html" import sort_th, pager, search, status_badge with context %}
 {% block title %}Refunds{% endblock %}
 {% block body %}
-<h1>Refunds</h1>
-<form method="get" action="/refunds">
-<label>Status
-<select name="status">
-<option value="">all</option>
-{% for s in statuses %}<option value="{{ s }}" {% if result.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
-</select></label>
-<input type="hidden" name="page_size" value="{{ result.page_size }}">
-<button type="submit">Filter</button>
-</form>
-{% set extra = "&page_size=" ~ result.page_size ~ ("&status=" ~ result.status if result.status else "") %}
-{% include "_pager.html" %}
-{% include "_refund_table.html" %}
+<div class="head"><div><h1>Refunds</h1><p>Every refund request, newest decisions included. Amounts are in US dollars.</p></div>
+{% if user.can("refund:create") %}<a class="btn primary" href="/refunds/new">Request refund</a>{% endif %}</div>
+<div class="card">
+  <div class="toolbar">
+    <div class="chips">
+      <a class="chip {{ 'on' if not result.status }}" href="{{ qs(status=None) }}">All</a>
+      {% for s in statuses %}<a class="chip {{ 'on' if result.status == s }}" href="{{ qs(status=s) }}">{{ {"pending_approval": "Pending approval", "approved": "Approved", "rejected": "Rejected"}[s] }}</a>{% endfor %}
+    </div>
+    <span class="grow"></span>
+    {{ search(result, "Search ID, charge, customer, agent or reason", {"status": result.status, "page_size": result.page_size if result.page_size != 25 else ""}) }}
+  </div>
+  <table class="t">
+    <thead><tr>{{ sort_th("ID", "id", result) }}{{ sort_th("Customer", "customer", result) }}{{ sort_th("Charge", "charge", result) }}{{ sort_th("Amount", "amount", result, "num") }}{{ sort_th("Status", "status", result) }}{{ sort_th("Requested by", "requested_by", result) }}{{ sort_th("Decided by", "decided_by", result) }}<th>Reason</th>{{ sort_th("Created", "created_at", result) }}</tr></thead>
+    <tbody>
+    {% for r in result["items"] %}
+    <tr><td><a class="strong" href="/refunds/{{ r.id }}">#{{ r.id }}</a></td><td>{{ r.customer_name }}</td><td class="muted">#{{ r.charge_id }}</td>
+      <td class="num strong">{{ r.amount_cents | dollars }}</td><td>{{ status_badge(r.status) }}</td><td>{{ r.requested_by }}</td>
+      <td>{{ r.decided_by or "" }}</td><td class="wrap">{{ r.reason }}</td><td class="muted">{{ r.created_at | day }}</td></tr>
+    {% else %}<tr><td colspan="9" class="empty">No refunds match.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
 {% endblock %}

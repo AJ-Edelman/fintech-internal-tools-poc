@@ -1,14 +1,12 @@
 """Tool 1 routes: pages and API. Every route checks a permission."""
-from decimal import Decimal, InvalidOperation
-
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, StrictInt
 
-from app.foundation import audit, customers
+from app.foundation import audit, customers, settings
 from app.foundation.auth import User, require
 from app.foundation.errors import AppError
-from app.foundation.web import page, tx
+from app.foundation.web import page, to_cents, tx
 
 from . import workflow as refunds
 
@@ -28,10 +26,11 @@ class DecisionBody(BaseModel):
 
 @router.get("/api/refunds")
 def api_list(request: Request, status: str | None = None, page: int = Query(1, ge=1),
-             page_size: int = Query(50, ge=1, le=MAX_PAGE_SIZE),
+             page_size: int = Query(50, ge=1, le=MAX_PAGE_SIZE), q: str | None = None,
+             sort: str | None = None, dir: str | None = None,
              user: User = Depends(require("refund:read"))):
     with tx(request) as conn:
-        return refunds.list_refunds(conn, status or None, page, page_size)
+        return refunds.list_refunds(conn, status or None, page, page_size, q, sort, dir)
 
 
 @router.post("/api/refunds", status_code=201)
@@ -65,88 +64,119 @@ def api_reject(request: Request, refund_id: int, body: DecisionBody,
 # --- pages ------------------------------------------------------------------------
 
 @router.get("/refunds", response_class=HTMLResponse)
-def list_page(request: Request, status: str | None = None, page_no: int = Query(1, ge=1, alias="page"),
+def list_page(request: Request, status: str | None = None, q: str | None = None,
+              sort: str | None = None, dir: str | None = None,
+              page_no: int = Query(1, ge=1, alias="page"),
               page_size: int = Query(25, ge=1, le=MAX_PAGE_SIZE),
               user: User = Depends(require("refund:read"))):
     with tx(request) as conn:
-        result = refunds.list_refunds(conn, status or None, page_no, page_size)
-    pages = max(1, -(-result["total"] // page_size))
-    return page(request, "refunds_list.html", user, result=result, pages=pages,
-                statuses=refunds.STATUSES)
+        result = refunds.list_refunds(conn, status or None, page_no, page_size, q, sort, dir)
+    return page(request, "refunds_list.html", user, result=result, statuses=refunds.STATUSES)
 
 
-def _form(request, user, status_code=200, error=None, values=None):
+def _picker(request, user, q=None, show=None, sort=None, direction=None, page_no=1, page_size=25):
+    """Step 1 of a request: find the charge in a searchable, sortable table."""
     with tx(request) as conn:
-        charges = customers.list_charges(conn)
-    return page(request, "refund_form.html", user, status_code=status_code, charges=charges,
-                error=error, values=values or {})
+        result = customers.search_charges(conn, q, None, show != "all", None, sort, direction,
+                                          page_no, page_size)
+    return page(request, "charges.html", user, result=result, statuses=customers.KYC_STATUSES,
+                picker=True, show=show or "refundable")
 
 
-def _to_cents(amount: str) -> int:
-    try:
-        value = Decimal(amount.strip().replace("$", "").replace(",", ""))
-    except (InvalidOperation, AttributeError):
-        raise AppError(422, "amount must be a number of dollars, e.g. 12.34")
-    if not value.is_finite():
-        raise AppError(422, "amount must be a number of dollars, e.g. 12.34")
-    cents = value * 100
-    if cents != cents.to_integral_value():
-        raise AppError(422, "amount cannot have fractions of a cent")
-    return int(cents)
+def _form(request, user, charge_id, status_code=200, error=None, values=None):
+    with tx(request) as conn:
+        charge = customers.get_charge(conn, charge_id)
+        reasons = settings.reason_options(conn, "reasons_refund_request")
+        limit = settings.get_auto_approve_limit(conn)
+    if charge is None:
+        raise AppError(422, f"charge {charge_id} does not exist")
+    return page(request, "refund_form.html", user, status_code=status_code, charge=charge,
+                reasons=reasons, limit_cents=limit, error=error, values=values or {})
 
 
 @router.get("/refunds/new", response_class=HTMLResponse)
-def new_page(request: Request, user: User = Depends(require("refund:create"))):
-    return _form(request, user)
+def new_page(request: Request, charge_id: int | None = None, q: str | None = None,
+             show: str | None = None, sort: str | None = None, dir: str | None = None,
+             page_no: int = Query(1, ge=1, alias="page"),
+             page_size: int = Query(25, ge=1, le=MAX_PAGE_SIZE),
+             user: User = Depends(require("refund:create"))):
+    if charge_id is None:
+        return _picker(request, user, q, show, sort, dir, page_no, page_size)
+    return _form(request, user, charge_id)
 
 
 @router.post("/refunds/new", response_class=HTMLResponse)
 def new_submit(request: Request, charge_id: str = Form(""), amount: str = Form(""),
-               reason: str = Form(""), user: User = Depends(require("refund:create"))):
-    values = {"charge_id": charge_id, "amount": amount, "reason": reason}
+               reason: str = Form(""), reason_choice: str = Form(""), reason_other: str = Form(""),
+               user: User = Depends(require("refund:create"))):
+    values = {"charge_id": charge_id, "amount": amount, "reason_choice": reason_choice,
+              "reason_other": reason_other or reason}
     try:
-        try:
-            charge = int(charge_id)
-        except ValueError:
-            raise AppError(422, "choose a charge")
+        charge = int(charge_id)
+    except ValueError:
+        raise AppError(422, "choose a charge")
+    try:
         with tx(request) as conn:
-            refund = refunds.request_refund(conn, user, charge, _to_cents(amount), reason)
+            chosen = settings.resolve_reason(conn, "reasons_refund_request", reason_choice,
+                                             reason_other, reason)
+            refund = refunds.request_refund(conn, user, charge, to_cents(amount), chosen)
     except AppError as exc:
         if exc.status != 422:
             raise
-        return _form(request, user, status_code=422, error=exc.detail, values=values)
+        return _form(request, user, charge, status_code=422, error=exc.detail, values=values)
     return RedirectResponse(f"/refunds/{refund['id']}", status_code=303)
 
 
-@router.get("/refunds/queue", response_class=HTMLResponse)
-def queue_page(request: Request, page_no: int = Query(1, ge=1, alias="page"),
-               user: User = Depends(require("refund:approve"))):
+def _queue(request, user, q=None, sort=None, direction=None, page_no=1, page_size=25,
+           status_code=200, error=None, done=None, done_id=None):
     with tx(request) as conn:
-        result = refunds.list_refunds(conn, refunds.PENDING, page_no, 25)
-    pages = max(1, -(-result["total"] // 25))
-    return page(request, "refund_queue.html", user, result=result, pages=pages)
+        result = refunds.list_refunds(conn, refunds.PENDING, page_no, page_size, q, sort, direction)
+        approve = settings.reason_options(conn, "reasons_refund_approve")
+        reject = settings.reason_options(conn, "reasons_refund_reject")
+    return page(request, "refund_queue.html", user, status_code=status_code, result=result,
+                approve_reasons=approve, reject_reasons=reject, error=error,
+                done=done if done in ("approve", "reject") else None, done_id=done_id)
+
+
+@router.get("/refunds/queue", response_class=HTMLResponse)
+def queue_page(request: Request, q: str | None = None, sort: str | None = None, dir: str | None = None,
+               page_no: int = Query(1, ge=1, alias="page"),
+               page_size: int = Query(25, ge=1, le=MAX_PAGE_SIZE),
+               done: str | None = None, id: int | None = None,
+               user: User = Depends(require("refund:approve"))):
+    return _queue(request, user, q, sort, dir, page_no, page_size, done=done, done_id=id)
+
+
+def _detail(request, user, refund_id, status_code=200, error=None):
+    with tx(request) as conn:
+        refund = refunds.get_refund(conn, refund_id)
+        history = audit.history(conn, "refund", refund_id)
+        approve = settings.reason_options(conn, "reasons_refund_approve")
+        reject = settings.reason_options(conn, "reasons_refund_reject")
+    return page(request, "refund_detail.html", user, status_code=status_code, refund=refund,
+                history=history, approve_reasons=approve, reject_reasons=reject, error=error)
 
 
 @router.get("/refunds/{refund_id}", response_class=HTMLResponse)
 def detail_page(request: Request, refund_id: int, user: User = Depends(require("refund:read"))):
-    with tx(request) as conn:
-        refund = refunds.get_refund(conn, refund_id)
-        history = audit.history(conn, "refund", refund_id)
-    return page(request, "refund_detail.html", user, refund=refund, history=history, error=None)
+    return _detail(request, user, refund_id)
 
 
 @router.post("/refunds/{refund_id}/decision", response_class=HTMLResponse)
 def decision_submit(request: Request, refund_id: int, decision: str = Form(""),
-                    reason: str = Form(""), user: User = Depends(require("refund:approve"))):
+                    reason: str = Form(""), reason_choice: str = Form(""), reason_other: str = Form(""),
+                    source: str = Form(""), user: User = Depends(require("refund:approve"))):
     try:
         with tx(request) as conn:
-            refunds.decide_refund(conn, user, refund_id, decision, reason)
+            key = "reasons_refund_reject" if decision == "reject" else "reasons_refund_approve"
+            chosen = settings.resolve_reason(conn, key, reason_choice, reason_other, reason)
+            refunds.decide_refund(conn, user, refund_id, decision, chosen)
     except AppError as exc:
         if exc.status != 422:
             raise
-        with tx(request) as conn:
-            refund = refunds.get_refund(conn, refund_id)
-            history = audit.history(conn, "refund", refund_id)
-        return page(request, "refund_detail.html", user, status_code=422, refund=refund,
-                    history=history, error=exc.detail)
+        if source == "queue":
+            return _queue(request, user, status_code=422, error=f"Refund #{refund_id}: {exc.detail}")
+        return _detail(request, user, refund_id, status_code=422, error=exc.detail)
+    if source == "queue":
+        return RedirectResponse(f"/refunds/queue?done={decision}&id={refund_id}", status_code=303)
     return RedirectResponse(f"/refunds/{refund_id}", status_code=303)

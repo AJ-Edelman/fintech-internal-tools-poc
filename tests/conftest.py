@@ -34,13 +34,13 @@ def seed_basics(db_path: str) -> None:
         for charge_id in range(1, 7):
             conn.execute(text(
                 "INSERT INTO charge (id, customer_id, amount_cents, created_at) "
-                "VALUES (:i, 1, 200000, '2026-01-01T00:00:00Z')"), {"i": charge_id})
+                "VALUES (:i, 1, 200000, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"), {"i": charge_id})
         conn.execute(text(
             "INSERT INTO customer (id, name, email, ssn, bank_account) VALUES "
             f"(3, 'Cleo Field', 'cleo@example.test', '{SSN_3}', '{BANK_3}')"))
         conn.execute(text(
             "INSERT INTO charge (id, customer_id, amount_cents, created_at) VALUES "
-            "(7, 2, 200000, '2026-01-01T00:00:00Z'), (8, 3, 200000, '2026-01-01T00:00:00Z')"))
+            "(7, 2, 200000, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')), (8, 3, 200000, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
         # Tool 2 setup data: customer 1 is KYC-approved, 2 stays pending, 3 is rejected.
         if any(r[1] == "kyc_status" for r in conn.execute(text("PRAGMA table_info(customer)"))):
             conn.execute(text("UPDATE customer SET kyc_status = 'approved' WHERE id = 1"))

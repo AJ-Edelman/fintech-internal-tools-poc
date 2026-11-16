@@ -7,7 +7,7 @@ from tests.conftest import audit_rows, request_refund
 
 INSERT_REFUND = (
     "INSERT INTO refund (charge_id, amount_cents, reason, status, requested_by, created_at, updated_at) "
-    "VALUES (?, ?, 'direct sql', ?, 'nobody', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
+    "VALUES (?, ?, 'direct sql', ?, 'nobody', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"
 )
 
 
@@ -146,7 +146,7 @@ def test_ac1_replacing_a_charge_cannot_shrink_it_below_its_refunds(login, sql):
         sql.execute(f"PRAGMA foreign_keys = {foreign_keys}")
         with pytest.raises(sqlite3.DatabaseError, match="refund cap exceeded"):
             sql.execute("INSERT OR REPLACE INTO charge (id, customer_id, amount_cents, created_at) "
-                        "VALUES (1, 1, 74999, '2026-01-01T00:00:00Z')")
+                        "VALUES (1, 1, 74999, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))")
     assert sql.execute("SELECT amount_cents FROM charge WHERE id = 1").fetchone()[0] == 200000
 
 

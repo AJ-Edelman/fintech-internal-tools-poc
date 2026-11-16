@@ -2,26 +2,47 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>{% block title %}Internal tools{% endblock %}</title>
-<style>
-body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #222; }
-nav a { margin-right: 1rem; }
-table { border-collapse: collapse; margin: 1rem 0; }
-th, td { border: 1px solid #ccc; padding: .3rem .6rem; text-align: left; vertical-align: top; }
-th { background: #f2f2f2; }
-.error { color: #a00; font-weight: bold; }
-.ok { color: #060; }
-label { display: block; margin: .5rem 0; }
-code { font-size: .85em; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Internal tools{% endblock %} · Ledgerline</title>
+{% include "_styles.html" %}
 </head>
 <body>
-<nav>
-{% for href, label in nav %}<a href="{{ href }}">{{ label }}</a>{% endfor %}
-{% if user %}<span>Signed in as <strong>{{ user.username }}</strong> ({{ user.roles | join(", ") or "no roles" }})</span>
-<a href="/login">Switch user</a>{% endif %}
-</nav>
-<hr>
-{% block body %}{% endblock %}
+{% if user %}
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span class="mark">L</span><span>Ledgerline<small>Internal tools</small></span></div>
+    <nav class="nav">
+      {% for section, links in nav.items() %}
+      <h6>{{ section }}</h6>
+      {% for href, label, on in links %}<a href="{{ href }}" class="{{ 'on' if on }}">{{ label }}</a>{% endfor %}
+      {% endfor %}
+    </nav>
+    <div class="me">
+      <span class="avatar">{{ user.username[:2] }}</span>
+      <span class="who"><b>{{ user.username }}</b><span>{{ user.roles | map("role_label") | join(", ") or "No roles" }}</span></span>
+      <form method="post" action="/logout"><button class="btn sm ghost" type="submit" title="Log out">Log out</button></form>
+    </div>
+  </aside>
+  <main class="main">{% block body %}{% endblock %}</main>
+</div>
+{% else %}{% block anon %}<main class="main">{{ self.body() }}</main>{% endblock %}{% endif %}
+<script>
+document.addEventListener("change", function (e) {
+  var sel = e.target.closest("select[data-other-toggle]");
+  if (!sel) return;
+  var other = sel.parentElement.querySelector("input[name=reason_other]");
+  if (other) { other.hidden = sel.value !== "Other"; other.required = sel.value === "Other"; if (!other.hidden) other.focus(); }
+});
+document.addEventListener("click", function (e) {
+  var btn = e.target.closest("form[data-decide] button[name=decision]");
+  if (!btn) return;
+  var opt = btn.form.querySelector("select[data-reason]").selectedOptions[0];
+  var side = opt && opt.dataset.side;
+  if (side && side !== btn.value) {
+    e.preventDefault();
+    alert("\u201c" + opt.textContent + "\u201d is a reason to " + side + ". Choose a reason to " + btn.value + " or pick Other.");
+  }
+});
+</script>
 </body>
 </html>

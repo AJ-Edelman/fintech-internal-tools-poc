@@ -9,6 +9,10 @@ from app.foundation.audit import SYSTEM_ACTOR
 from app.foundation.db import utcnow
 from app.foundation.errors import AppError
 from app.foundation.pii import redact_text
+from datetime import datetime, timedelta, timezone
+
+from app.foundation import settings
+from app.foundation.listing import run_list
 from app.foundation.settings import get_auto_approve_limit
 from app.foundation.workflow import SYSTEM, Transition, Workflow
 
@@ -43,6 +47,8 @@ def guard_valid_request(conn, row, actor):
 
 def guard_customer_kyc_approved(conn, row, actor):
     """Cross-tool rule (tool 2): refunds are created or approved only for KYC-approved customers."""
+    if not settings.get(conn, settings.REFUND_REQUIRES_KYC):
+        return
     status = conn.execute(
         text("SELECT cu.kyc_status FROM charge ch JOIN customer cu ON cu.id = ch.customer_id "
              "WHERE ch.id = :c"),
@@ -50,6 +56,17 @@ def guard_customer_kyc_approved(conn, row, actor):
     ).scalar()
     if status != "approved":
         raise AppError(422, f"customer KYC status is {status}; it must be approved")
+
+
+def guard_charge_not_too_old(conn, row, actor):
+    days = settings.get(conn, settings.MAX_REFUND_AGE)
+    if days is None:
+        return
+    created = conn.execute(text("SELECT created_at FROM charge WHERE id = :c"),
+                           {"c": row["charge_id"]}).scalar()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+    if created is not None and created.replace(" ", "T") < cutoff:
+        raise AppError(422, f"charge is older than {days} days; refunds are no longer allowed")
 
 
 def guard_not_own_request(conn, row, actor):
@@ -70,7 +87,7 @@ REFUND_WORKFLOW = Workflow(
     updated_at_column="updated_at",
     transitions=(
         Transition("request", None, PENDING, "refund:create",
-                   guards=(guard_valid_request, guard_customer_kyc_approved),
+                   guards=(guard_valid_request, guard_customer_kyc_approved, guard_charge_not_too_old),
                    actor_column="requested_by"),
         Transition("auto_approve", PENDING, APPROVED, None, actor_column="decided_by",
                    audit_extra=_auto_approval_audit),
@@ -120,22 +137,31 @@ def decide_refund(conn, actor, refund_id: int, decision: str, reason: str) -> di
 
 
 def get_refund(conn, refund_id: int) -> dict:
-    row = conn.execute(text("SELECT * FROM refund WHERE id = :i"), {"i": refund_id}).mappings().first()
+    row = conn.execute(text(f"SELECT {_REFUND_SELECT} FROM {_REFUND_FROM} WHERE r.id = :i"),
+                       {"i": refund_id}).mappings().first()
     if row is None:
         raise AppError(404, f"refund {refund_id} not found")
     return dict(row)
 
 
-def list_refunds(conn, status: str | None, page: int, page_size: int) -> dict:
+_REFUND_SELECT = ("r.*, ch.customer_id, cu.name AS customer_name, ch.amount_cents AS charge_amount_cents")
+_REFUND_FROM = "refund r JOIN charge ch ON ch.id = r.charge_id JOIN customer cu ON cu.id = ch.customer_id"
+_REFUND_SORTS = {"id": "r.id", "amount": "r.amount_cents", "status": "r.status", "customer": "cu.name",
+                 "charge": "r.charge_id", "requested_by": "r.requested_by", "decided_by": "r.decided_by",
+                 "created_at": "r.created_at"}
+
+
+def list_refunds(conn, status: str | None, page: int, page_size: int, q: str | None = None,
+                 sort: str | None = None, direction: str | None = None) -> dict:
     if status is not None and status not in STATUSES:
         raise AppError(422, "status must be one of " + ", ".join(STATUSES))
-    where, params = "", {}
+    where, params = [], {}
     if status is not None:
-        where, params = "WHERE status = :s", {"s": status}
-    total = conn.execute(text(f"SELECT COUNT(*) FROM refund {where}"), params).scalar()
-    rows = conn.execute(
-        text(f"SELECT * FROM refund {where} ORDER BY id LIMIT :l OFFSET :o"),
-        {**params, "l": page_size, "o": (page - 1) * page_size},
-    ).mappings()
-    return {"items": [dict(r) for r in rows], "total": total, "page": page,
-            "page_size": page_size, "status": status}
+        where, params = ["r.status = :s"], {"s": status}
+    result = run_list(
+        conn, select=_REFUND_SELECT, frm=_REFUND_FROM, where=where, params=params,
+        search=("r.id", "r.charge_id", "cu.name", "r.requested_by", "r.decided_by", "r.reason"), q=q,
+        sorts=_REFUND_SORTS, default_sort="id", tiebreak="r.id", sort=sort, direction=direction,
+        page=page, page_size=page_size)
+    result["status"] = status
+    return result

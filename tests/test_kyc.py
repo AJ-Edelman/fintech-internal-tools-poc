@@ -192,7 +192,7 @@ def test_ac14_database_at_001_upgrades_to_002_with_every_row_intact(tmp_path):
     assert "kyc_status" not in before["customer"][0]
     inode = os.stat(path).st_ino
 
-    assert migrate(path) == [2]
+    assert migrate(path, target=2) == [2]
     assert applied_versions(path) == [1, 2]
     assert os.stat(path).st_ino == inode, "the database file must be upgraded in place, not recreated"
     after = _dump(path)
@@ -208,7 +208,7 @@ def test_ac14_database_at_001_upgrades_to_002_with_every_row_intact(tmp_path):
         assert new == old
 
     # Running it again changes nothing, and the 001 rules still hold after the upgrade.
-    assert migrate(path) == []
+    assert migrate(path, target=2) == []
     assert _dump(path) == _dump(path) and applied_versions(path) == [1, 2]
     con = sqlite3.connect(path, isolation_level=None)
     for statement in ("UPDATE audit_event SET actor = 'x'", "DELETE FROM audit_event",

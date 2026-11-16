@@ -102,14 +102,23 @@ def test_ac2_hard_maximum_is_75000(login, sql):
     assert len(audit_rows(sql, "setting", "auto_approve_limit_cents")) == 1
 
 
-def test_ac2_limit_change_needs_a_reason_and_form_enforces_the_same_rules(login, sql):
+def test_ac2_limit_change_needs_no_reason_and_form_enforces_the_same_rules(login, sql):
+    # Product change after the build: an admin no longer has to type a reason for a limit change.
+    # The change is still audited with who, when, old and new value.
     admin = login("admin1")
     assert admin.put("/api/settings/auto-approve-limit",
-                     json={"value_cents": 100, "reason": "  "}).status_code == 422
+                     json={"value_cents": 100, "reason": "  "}).status_code == 200
+    assert admin.put("/api/settings/auto-approve-limit", json={"value_cents": 200}).status_code == 200
     assert admin.post("/admin/settings", data={"value_cents": "75001", "reason": "x"}).status_code == 422
     assert admin.post("/admin/settings", data={"value_cents": "70000", "reason": "form"}).status_code == 200
     assert admin.get("/api/settings/auto-approve-limit").json()["value_cents"] == 70000
-    assert len(audit_rows(sql, "setting", "auto_approve_limit_cents")) == 1
+    assert admin.post("/admin/settings", data={"amount": "750.01"}).status_code == 422
+    assert admin.post("/admin/settings", data={"amount": "$650.00"}).status_code == 200
+    assert admin.get("/api/settings/auto-approve-limit").json()["value_cents"] == 65000
+    events = audit_rows(sql, "setting", "auto_approve_limit_cents")
+    assert [(e["actor"], json.loads(e["before"])["value"], json.loads(e["after"])["value"], e["reason"])
+            for e in events] == [("admin1", 50000, 100, None), ("admin1", 100, 200, None),
+                                 ("admin1", 200, 70000, "form"), ("admin1", 70000, 65000, None)]
 
 
 def test_ac2_non_admin_changing_limit_gets_403(login, sql):

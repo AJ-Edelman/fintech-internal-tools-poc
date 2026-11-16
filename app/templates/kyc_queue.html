@@ -1,13 +1,25 @@
 {% extends "base.html" %}
+{% from "_ui.html" import sort_th, pager, search, status_badge, decide_form with context %}
 {% block title %}KYC queue{% endblock %}
 {% block body %}
-<h1>KYC queue</h1>
-<p>Customers waiting for review. Values are masked here; opening a customer shows them in full and is audited.</p>
-<table>
-<tr><th>ID</th><th>Name</th><th>Email</th><th>SSN</th><th>Bank account</th><th>KYC status</th></tr>
-{% for c in customers %}
-<tr><td><a href="/kyc/{{ c.id }}">{{ c.id }}</a></td><td>{{ c.name }}</td><td>{{ c.email }}</td><td>{{ c.ssn }}</td><td>{{ c.bank_account }}</td><td>{{ c.kyc_status }}</td></tr>
-{% else %}<tr><td colspan="6">Nobody is waiting.</td></tr>
-{% endfor %}
-</table>
+<div class="head"><div><h1>KYC queue</h1><p>Values are masked here. Open a customer to see them in full; that view is audited.</p></div>
+<div class="stat" style="text-align:right"><span>{{ "Waiting" if status == "pending" else "Shown" }}</span><b>{{ result.total }}</b></div></div>
+{% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+{% if done %}<div class="alert ok">Customer #{{ done_id }} {{ "approved" if done == "approve" else "rejected" }}.</div>{% endif %}
+<div class="card">
+  <div class="toolbar">
+    <div class="chips">{% for s in statuses %}<a class="chip {{ 'on' if status == s }}" href="{{ qs(status=s) }}">{{ s | capitalize }}</a>{% endfor %}<a class="chip {{ 'on' if status == 'all' }}" href="{{ qs(status='all') }}">All</a></div>
+    <span class="grow"></span>{{ search(result, "Search name, email, ID or last 4 digits", {"status": status}) }}
+  </div>
+  <table class="t">
+    <thead><tr>{{ sort_th("ID", "id", result) }}{{ sort_th("Name", "name", result) }}{{ sort_th("Email", "email", result) }}<th>SSN</th><th>Bank account</th>{{ sort_th("Status", "kyc_status", result) }}<th style="text-align:right">Decision</th></tr></thead>
+    <tbody>
+    {% for c in result["items"] %}
+    <tr><td class="muted">#{{ c.id }}</td><td><a class="strong" href="/kyc/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.email }}</td><td class="mono">{{ c.ssn }}</td><td class="mono">{{ c.bank_account }}</td><td>{{ status_badge(c.kyc_status) }}</td>
+      <td><div class="row-actions">{% if c.kyc_status == "pending" %}{{ decide_form("/kyc/" ~ c.id ~ "/decision", approve_reasons, reject_reasons, "queue") }}{% else %}<a class="btn sm" href="/kyc/{{ c.id }}">Open</a>{% endif %}</div></td></tr>
+    {% else %}<tr><td colspan="7" class="empty">{{ "Nobody is waiting." if status == "pending" else "No customers match." }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
 {% endblock %}

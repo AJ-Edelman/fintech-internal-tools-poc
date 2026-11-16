@@ -1,13 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Settings{% endblock %}
 {% block body %}
-<h1>Auto-approve limit</h1>
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
-{% if saved %}<p class="ok">Saved.</p>{% endif %}
-<p>Current limit: <strong>{{ value_cents }}</strong> cents ({{ value_cents | dollars }}). Allowed: 0 to {{ max_cents }} cents.</p>
-<form method="post" action="/admin/settings">
-<label>New limit in cents <input name="value_cents" value="{{ value_cents }}"></label>
-<label>Reason <input name="reason" size="60"></label>
-<button type="submit">Change limit</button>
-</form>
+<div class="head"><div><h1>Settings</h1><p>Every change is written to the audit log with who made it, when, and the old and new value.</p></div></div>
+{% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+{% if saved %}<div class="alert ok">Saved: {{ saved }}.</div>{% endif %}
+{% for group, items in groups.items() %}
+<div class="card"><div class="card-h"><h2>{{ group }}</h2></div>
+{% for item in items %}{% set s = item.spec %}
+  <div class="setting" id="{{ s.key }}">
+    <div><div class="strong">{{ s.label }}</div><p>{{ s.help }}{% if s.kind == "cents" %} Between {{ s.minimum | dollars }} and {{ s.maximum | dollars }}.{% endif %}</p>
+      {% if item.last %}<p class="small">Last changed by {{ item.last.actor }}, {{ item.last.created_at | when }}{% if item.last.change %} ({{ item.last.change }}){% endif %}</p>{% endif %}</div>
+    {% if s.kind == "cents" %}
+    <form method="post" action="/admin/settings"><span class="grow"><input name="amount" inputmode="decimal" value="{{ '%.2f' % (item.value / 100) }}" aria-label="{{ s.label }} in dollars" style="width:100%"></span><button class="btn primary" type="submit">Save</button></form>
+    {% elif s.kind == "bool" %}
+    <form method="post" action="/admin/settings/{{ s.key }}"><label class="switch"><input type="checkbox" name="value" {% if item.value %}checked{% endif %} onchange="this.form.submit()"> {{ "On" if item.value else "Off" }}</label><noscript><button class="btn" type="submit">Save</button></noscript></form>
+    {% elif s.kind == "list" %}
+    <form method="post" action="/admin/settings/{{ s.key }}"><textarea name="value" aria-label="{{ s.label }}, one per line">{{ item.value | join("\n") }}</textarea><span class="small muted grow">One per line. "Other" is always added at the end.</span><button class="btn primary" type="submit">Save</button></form>
+    {% else %}
+    <form method="post" action="/admin/settings/{{ s.key }}"><span class="grow"><input name="value" inputmode="numeric" value="{{ item.value if item.value is not none else '' }}" placeholder="{{ 'No limit' if s.kind == 'optional_int' else '' }}" aria-label="{{ s.label }}" style="width:100%"></span><button class="btn primary" type="submit">Save</button></form>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+{% endfor %}
 {% endblock %}

@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from fastapi import Request
 from sqlalchemy import text
 
+from datetime import datetime, timedelta, timezone
+
+from . import settings
 from .db import utcnow
 from .errors import AppError
 from .permissions import permissions_for
@@ -49,7 +52,7 @@ def create_user(conn, username: str, password: str, roles=()) -> int:
 
 def login(conn, username: str, password: str) -> str | None:
     row = conn.execute(
-        text("SELECT id, password_salt, password_hash FROM app_user WHERE username = :u"),
+        text("SELECT id, password_salt, password_hash FROM app_user WHERE username = :u AND active = 1"),
         {"u": username},
     ).first()
     if row is None:
@@ -59,26 +62,42 @@ def login(conn, username: str, password: str) -> str | None:
         return None
     token = secrets.token_urlsafe(32)
     conn.execute(
-        text("INSERT INTO user_session (token, user_id, created_at) VALUES (:t, :u, :c)"),
+        text("INSERT INTO user_session (token, user_id, created_at, last_seen_at) VALUES (:t, :u, :c, :c)"),
         {"t": token, "u": row.id, "c": utcnow()},
     )
     return token
+
+
+def logout(conn, token: str | None) -> None:
+    if token:
+        conn.execute(text("DELETE FROM user_session WHERE token = :t"), {"t": token})
+
+
+def _expired(last_seen: str, timeout_minutes: int) -> bool:
+    seen = datetime.strptime(last_seen, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - seen > timedelta(minutes=timeout_minutes)
 
 
 def user_from_request(request: Request) -> User | None:
     token = request.cookies.get(COOKIE)
     if not token:
         return None
-    with request.app.state.engine.connect() as conn:
+    with request.app.state.engine.begin() as conn:
         row = conn.execute(
             text(
-                "SELECT u.id, u.username FROM user_session s JOIN app_user u ON u.id = s.user_id "
-                "WHERE s.token = :t"
+                "SELECT u.id, u.username, COALESCE(s.last_seen_at, s.created_at) AS seen "
+                "FROM user_session s JOIN app_user u ON u.id = s.user_id "
+                "WHERE s.token = :t AND u.active = 1"
             ),
             {"t": token},
         ).first()
         if row is None:
             return None
+        if _expired(row.seen, int(settings.get(conn, settings.SESSION_TIMEOUT))):
+            logout(conn, token)
+            return None
+        conn.execute(text("UPDATE user_session SET last_seen_at = :n WHERE token = :t"),
+                     {"n": utcnow(), "t": token})
         roles = tuple(
             r[0]
             for r in conn.execute(

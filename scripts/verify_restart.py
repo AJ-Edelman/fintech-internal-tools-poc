@@ -83,7 +83,7 @@ def main() -> int:
                 conn.execute(text("UPDATE customer SET kyc_status = 'approved'"))
             conn.execute(text(
                 "INSERT INTO charge (id, customer_id, amount_cents, created_at) "
-                "VALUES (1, 1, 200000, '2026-01-01T00:00:00Z')"))
+                "VALUES (1, 1, 200000, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
         engine.dispose()
 
         port = free_port()

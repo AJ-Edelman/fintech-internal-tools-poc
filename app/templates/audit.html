@@ -1,13 +1,31 @@
 {% extends "base.html" %}
+{% from "_ui.html" import sort_th, pager, search with context %}
 {% block title %}Audit log{% endblock %}
 {% block body %}
-<h1>Audit log (latest 200)</h1>
-<table>
-<tr><th>ID</th><th>When (UTC)</th><th>Who</th><th>What</th><th>Entity</th><th>Before</th><th>After</th><th>Reason</th></tr>
-{% for e in events %}
-<tr><td>{{ e.id }}</td><td>{{ e.created_at }}</td><td>{{ e.actor }}</td><td>{{ e.action }}</td><td>{{ e.entity }} {{ e.entity_id }}</td>
-<td><code>{{ e.before | tojson if e.before is not none else "" }}</code></td>
-<td><code>{{ e.after | tojson if e.after is not none else "" }}</code></td><td>{{ e.reason or "" }}</td></tr>
-{% endfor %}
-</table>
+<div class="head"><div><h1>Audit log</h1><p>Every change in every tool, append-only. The database refuses edits and deletes.</p></div></div>
+<div class="card">
+  <div class="toolbar">
+    <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin:0;align-items:center">{% if result.q %}<input type="hidden" name="q" value="{{ result.q }}">{% endif %}
+      <select name="actor" aria-label="Who"><option value="">Anyone</option>{% for a in facets.actor %}<option {% if result.actor == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+      <select name="action" aria-label="Action"><option value="">Any action</option>{% for a in facets.action %}<option {% if result.action == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+      <select name="entity" aria-label="Record type"><option value="">Any record</option>{% for a in facets.entity %}<option {% if result.entity == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+      <input type="date" name="date_from" value="{{ result.date_from }}" aria-label="From"><span class="muted">to</span><input type="date" name="date_to" value="{{ result.date_to }}" aria-label="To">
+      <button class="btn" type="submit">Filter</button>{% if result.actor or result.action or result.entity or result.date_from or result.date_to %}<a class="btn ghost" href="/admin/audit">Reset</a>{% endif %}
+    </form>
+    <span class="grow"></span>{{ search(result, "Search text, reason or record ID", {"actor": result.actor, "action": result.action, "entity": result.entity, "date_from": result.date_from, "date_to": result.date_to}) }}
+  </div>
+  <table class="t">
+    <thead><tr>{{ sort_th("When", "when", result) }}{{ sort_th("Who", "actor", result) }}<th>What happened</th><th>Change</th><th>Reason</th></tr></thead>
+    <tbody>
+    {% for e in result["items"] %}{% set d = e | describe %}
+    <tr><td class="muted" style="white-space:nowrap">{{ e.created_at | when }}</td><td class="strong">{{ e.actor }}</td>
+      <td>{% if d.link %}<a href="{{ d.link }}">{{ d.what | capitalize }}</a>{% else %}{{ d.what | capitalize }}{% endif %}
+        <details class="raw"><summary><span class="mono">{{ e.action }}</span> · event #{{ e.id }}</summary><pre>before: {{ e.before | tojson if e.before is not none else "none" }}
+after:  {{ e.after | tojson if e.after is not none else "none" }}</pre></details></td>
+      <td class="small">{{ d.change }}</td><td class="wrap small">{{ e.reason or "" }}</td></tr>
+    {% else %}<tr><td colspan="5" class="empty">No events match.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
 {% endblock %}

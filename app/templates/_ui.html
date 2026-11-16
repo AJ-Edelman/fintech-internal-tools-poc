@@ -1,0 +1,71 @@
+{% macro sort_th(label, key, result, cls="") -%}
+{% set is_on = result.sort == key %}{% set next_dir = "desc" if is_on and result.dir == "asc" else "asc" %}
+<th class="{{ cls }}"><a href="{{ qs(sort=key, dir=next_dir) }}">{{ label }}{% if is_on %}<span class="arrow">{{ "↑" if result.dir == "asc" else "↓" }}</span>{% endif %}</a></th>
+{%- endmacro %}
+
+{% macro pager(result) -%}
+<div class="pager">
+  <span>Page {{ result.page }} of {{ result.pages }} ({{ result.total }} total)</span>
+  <span class="btns">
+    {% if result.page > 1 %}<a class="btn sm" href="{{ qs(page=result.page - 1) }}">Previous</a>{% else %}<span class="btn sm" disabled>Previous</span>{% endif %}
+    {% if result.page < result.pages %}<a class="btn sm" href="{{ qs(page=result.page + 1) }}">Next</a>{% else %}<span class="btn sm" disabled>Next</span>{% endif %}
+  </span>
+</div>
+{%- endmacro %}
+
+{% macro search(result, placeholder, hidden={}) -%}
+<form method="get" class="grow" style="display:flex;gap:8px;margin:0">
+  {% for k, v in hidden.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+  {% if result.sort %}<input type="hidden" name="sort" value="{{ result.sort }}"><input type="hidden" name="dir" value="{{ result.dir }}">{% endif %}
+  <input class="search" type="search" name="q" value="{{ result.q }}" placeholder="{{ placeholder }}">
+  <button class="btn" type="submit">Search</button>
+  {% if result.q %}<a class="btn ghost" href="{{ qs(q=None) }}">Clear</a>{% endif %}
+</form>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+{% set m = {"pending_approval": ("b-warn", "Pending approval"), "pending": ("b-warn", "Pending"),
+            "approved": ("b-ok", "Approved"), "rejected": ("b-bad", "Rejected")} %}
+{% set c = m.get(status, ("b-neutral", status)) %}<span class="badge {{ c[0] }}">{{ c[1] }}</span>
+{%- endmacro %}
+
+{% macro reason_picker(name_prefix, options, selected="", other="", required=True, placeholder="Choose a reason") -%}
+<select name="reason_choice" data-other-toggle {% if required %}required{% endif %}>
+  <option value="">{{ placeholder }}</option>
+  {% for o in options %}<option {% if selected == o %}selected{% endif %}>{{ o }}</option>{% endfor %}
+  <option value="Other" {% if selected == "Other" %}selected{% endif %}>Other…</option>
+</select>
+<input class="other" name="reason_other" value="{{ other }}" placeholder="Type the reason" {% if selected != "Other" %}hidden{% endif %} maxlength="500">
+{%- endmacro %}
+
+{% macro decide_form(action, approve_reasons, reject_reasons, source="") -%}
+<form method="post" action="{{ action }}" class="decide" data-decide>
+  {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
+  <select name="reason_choice" data-other-toggle data-reason required aria-label="Reason">
+    <option value="">Reason…</option>
+    <optgroup label="Approve">{% for o in approve_reasons %}<option data-side="approve">{{ o }}</option>{% endfor %}</optgroup>
+    <optgroup label="Reject">{% for o in reject_reasons %}<option data-side="reject">{{ o }}</option>{% endfor %}</optgroup>
+    <option value="Other">Other…</option>
+  </select>
+  <input class="other" name="reason_other" placeholder="Type the reason" hidden maxlength="500">
+  <button class="btn sm ok" type="submit" name="decision" value="approve">Approve</button>
+  <button class="btn sm bad" type="submit" name="decision" value="reject">Reject</button>
+</form>
+{%- endmacro %}
+
+{% macro history_timeline(history) -%}
+{% if history %}
+<ul class="timeline">
+{% for e in history %}{% set d = e | describe %}
+  <li>
+    <div class="what">{{ e.actor }} {{ d.what }}</div>
+    <div class="meta">{{ e.created_at | when }} · <span class="mono">{{ e.action }}</span>{% if d.change %} · {{ d.change }}{% endif %}</div>
+    {% if e.reason %}<div class="small">Reason: {{ e.reason }}</div>{% endif %}
+    <details class="raw"><summary>Raw event #{{ e.id }}</summary><pre>before: {{ e.before | tojson if e.before is not none else "none" }}
+after:  {{ e.after | tojson if e.after is not none else "none" }}
+time:   {{ e.created_at }}</pre></details>
+  </li>
+{% endfor %}
+</ul>
+{% else %}<p class="muted" style="margin:0">No audit events.</p>{% endif %}
+{%- endmacro %}

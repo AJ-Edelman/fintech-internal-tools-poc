@@ -1,9 +1,0 @@
-<table>
-<tr><th>When (UTC)</th><th>Who</th><th>What</th><th>Before</th><th>After</th><th>Reason</th></tr>
-{% for e in history %}
-<tr><td>{{ e.created_at }}</td><td>{{ e.actor }}</td><td>{{ e.action }}</td>
-<td><code>{{ e.before | tojson if e.before is not none else "" }}</code></td>
-<td><code>{{ e.after | tojson if e.after is not none else "" }}</code></td><td>{{ e.reason or "" }}</td></tr>
-{% else %}<tr><td colspan="6">No audit events.</td></tr>
-{% endfor %}
-</table>
