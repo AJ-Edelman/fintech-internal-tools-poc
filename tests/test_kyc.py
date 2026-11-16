@@ -278,3 +278,24 @@ def test_ac7_pii_typed_into_a_refund_reason_is_stored_and_shown_masked(login, sq
             assert SSN_1 not in body and BANK_1 not in body, path
     assert SSN_1 not in created.text and BANK_1 not in created.text
     assert SSN_1 not in approver.get("/refunds/queue").text
+
+
+def test_ac7_ssn_glued_to_other_characters_never_reaches_an_audit_row(login, sql):
+    agent, approver, kyc, admin = login("agent1"), login("approver1"), login("kyc1"), login("admin1")
+    glued = [f"ssn{SSN_1} end", f"_{SSN_1}_ end", f"1{SSN_1} end", f"{SSN_1}9 end", f"x{SSN_2}y{SSN_3}z"]
+    for charge_id, reason in enumerate(glued, start=1):
+        assert request_refund(agent, charge_id=charge_id, amount_cents=75000, reason=reason).status_code == 201
+    assert approver.post("/api/refunds/1/reject", json={"reason": f"k{SSN_1} acct{BANK_1}"}).status_code == 200
+    assert kyc.post("/api/kyc/2/decision",
+                    json={"decision": "reject", "reason": f"x{SSN_2} acct{BANK_2}"}).status_code == 200
+    assert admin.put("/api/settings/auto-approve-limit",
+                     json={"value_cents": 50000, "reason": f"id{SSN_3} n{BANK_3}"}).status_code == 200
+    rows = sql.execute("SELECT * FROM audit_event").fetchall()
+    assert len(rows) == 8
+    for table in ("audit_event", "refund"):
+        for row in sql.execute(f"SELECT * FROM {table}").fetchall():
+            blob = " ".join("" if value is None else str(value) for value in tuple(row))
+            for raw in RAW_VALUES:
+                assert raw not in blob, (table, row["id"], raw)
+    reasons = [r["reason"] for r in rows]
+    assert "ssn***-**-3456 end" in reasons and "1***-**-3456 end" in reasons

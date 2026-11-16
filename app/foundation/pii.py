@@ -3,7 +3,8 @@ import re
 
 PII_FIELDS = ("ssn", "bank_account")
 
-_SSN_RE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+# No word boundaries: an SSN glued to a letter, digit or underscore must still be caught.
+_SSN_RE = re.compile(r"\d{3}-\d{2}-\d{4}")
 _LONG_DIGITS_RE = re.compile(r"\d{8,}")
 
 

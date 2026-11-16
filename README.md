@@ -48,7 +48,8 @@ charges; customers 1 to 10 have one over $1,000.
 ## Demo walkthrough
 
 1. Log in as `agent1`. Request $750.00 on a charge of customer 1: it is `pending_approval`. Request
-   $500.00 on a different, unused charge: it is approved by `system`.
+   $500.00 on a different charge with no refunds yet: it is approved by `system`. (The seed already
+   put refunds on charges 1, 3 and 5; use other charges for both requests.)
 2. Still as `agent1`, request a refund on a charge of customer 13 (KYC pending): rejected with 422.
 3. Log in as `approver1`, open the approval queue, approve the $750 request with a reason. The refund
    page shows the audit history.
