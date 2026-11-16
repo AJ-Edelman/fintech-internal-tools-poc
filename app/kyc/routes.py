@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
-from app.foundation import audit, customers, settings, web
+from app.foundation import audit, customers, lists, settings, web
 from app.foundation.auth import User, require
 from app.foundation.errors import AppError
 from app.foundation.web import page, tx
@@ -41,9 +41,11 @@ def _queue(request, user, q=None, status=None, sort=None, direction=None, page_n
            status_code=200, error=None, done=None, done_id=None):
     with tx(request) as conn:
         result = customers.search_customers(conn, q, status or "pending" if status != "all" else None,
-                                            sort, direction, page_no, page_size)
+                                            sort, direction, page_no, page_size, user=user,
+                                            spec=customers.KYC_QUEUE)
         reasons = _reasons(conn)
-    return page(request, "kyc_queue.html", user, status_code=status_code, result=result,
+    return lists.render(request, user, customers.KYC_QUEUE, result, "kyc_queue.html",
+                        status_code=status_code,
                 status=status or "pending", statuses=customers.KYC_STATUSES, error=error,
                 done=done if done in ("approve", "reject") else None, done_id=done_id, **reasons)
 
@@ -60,7 +62,7 @@ def queue_page(request: Request, q: str | None = None, status: str | None = None
 def _review(request, user, customer_id, status_code=200, error=None):
     with tx(request) as conn:
         # Shared detail view: unmasked only with pii:read, and then audited.
-        customer = customers.get_customer(conn, customer_id, user)
+        customer = customers.get_customer(conn, customer_id, user, "kyc:review")
         history = audit.history(conn, "customer", customer_id)
         reasons = _reasons(conn)
     return page(request, "kyc_review.html", user, status_code=status_code, customer=customer,

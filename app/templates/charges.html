@@ -13,7 +13,7 @@
       <a class="chip {{ 'on' if show == 'refundable' }}" href="{{ qs(show='refundable') }}">Refundable balance</a>
       <a class="chip {{ 'on' if show == 'all' }}" href="{{ qs(show='all') }}">All charges</a>
     </div>
-    {% if not picker %}<form method="get" style="margin:0">{% for k in ("q", "show", "sort", "dir") %}{% if request.query_params.get(k) %}<input type="hidden" name="{{ k }}" value="{{ request.query_params.get(k) }}">{% endif %}{% endfor %}
+    {% if not picker %}<form method="get" style="margin:0">{% for k in ("q", "show", "sort", "dir") %}{% if request.query_params.get(k) and not (k == "q" and result.q_blocked) %}<input type="hidden" name="{{ k }}" value="{{ request.query_params.get(k) }}">{% endif %}{% endfor %}
       <select name="kyc_status" onchange="this.form.submit()" aria-label="KYC status"><option value="">Any KYC status</option>{% for s in statuses %}<option value="{{ s }}" {% if result.kyc_status == s %}selected{% endif %}>KYC {{ s }}</option>{% endfor %}</select></form>{% endif %}
     <span class="grow"></span>
     {{ search(result, "Search customer, email or charge ID", {"show": show, "kyc_status": result.kyc_status}) }}

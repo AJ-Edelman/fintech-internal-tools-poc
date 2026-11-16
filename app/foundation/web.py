@@ -11,7 +11,7 @@ from pydantic import BaseModel, StrictInt
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from . import audit, auth, customers, settings, users
+from . import audit, auth, customers, lists, settings, users
 from .auth import User, require
 from .errors import AppError
 from .listing import MAX_PAGE_SIZE
@@ -214,7 +214,7 @@ def api_customers(request: Request, q: str | None = None, kyc_status: str | None
                   page_size: int = Query(MAX_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
                   user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
-        return customers.search_customers(conn, q, kyc_status or None, sort, dir, page, page_size)
+        return customers.search_customers(conn, q, kyc_status or None, sort, dir, page, page_size, user=user)
 
 
 @router.get("/api/customers/{customer_id}")
@@ -231,7 +231,7 @@ def api_charges(request: Request, customer_id: int | None = None, q: str | None 
                 user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
         return customers.search_charges(conn, q, customer_id, refundable, kyc_status or None,
-                                        sort or "id", dir or "asc", page, page_size)
+                                        sort or "id", dir or "asc", page, page_size, user=user)
 
 
 @router.get("/customers", response_class=HTMLResponse)
@@ -239,8 +239,10 @@ def customers_page(request: Request, q: str | None = None, kyc_status: str | Non
                    sort: str | None = None, dir: str | None = None, page_no: int = Query(1, ge=1, alias="page"),
                    page_size: int = PageSize, user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
-        result = customers.search_customers(conn, q, kyc_status or None, sort, dir, page_no, page_size)
-    return page(request, "customers.html", user, result=result, statuses=customers.KYC_STATUSES)
+        result = customers.search_customers(conn, q, kyc_status or None, sort, dir, page_no, page_size,
+                                            user=user)
+    return lists.render(request, user, customers.CUSTOMER_LIST, result, "customers.html",
+                        statuses=customers.KYC_STATUSES)
 
 
 @router.get("/charges", response_class=HTMLResponse)
@@ -250,9 +252,9 @@ def charges_page(request: Request, q: str | None = None, show: str | None = None
                  user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
         result = customers.search_charges(conn, q, None, show == "refundable", kyc_status or None,
-                                          sort, dir, page_no, page_size)
+                                          sort, dir, page_no, page_size, user=user)
         rules = settings.refund_rules(conn)
-    return page(request, "charges.html", user, result=result, statuses=customers.KYC_STATUSES,
+    return lists.render(request, user, customers.CHARGE_LIST, result, "charges.html", statuses=customers.KYC_STATUSES,
                 picker=False, show=show or "all", rules=rules)
 
 
@@ -262,9 +264,11 @@ def customer_page(request: Request, customer_id: int, q: str | None = None, sort
                   page_size: int = PageSize, user: User = Depends(require("customer:read"))):
     with tx(request) as conn:
         customer = customers.get_customer(conn, customer_id, user)
-        result = customers.search_charges(conn, q, customer_id, False, None, sort, dir, page_no, page_size)
+        result = customers.search_charges(conn, q, customer_id, False, None, sort, dir, page_no, page_size,
+                                          user=user)
         rules = settings.refund_rules(conn)
-    return page(request, "customer_detail.html", user, customer=customer, result=result, rules=rules)
+    return lists.render(request, user, customers.CHARGE_LIST, result, "customer_detail.html",
+                        customer=customer, rules=rules)
 
 
 # --- admin: settings ------------------------------------------------------------------
@@ -403,4 +407,4 @@ def audit_page(request: Request, q: str | None = None, actor: str | None = None,
         result = audit.search(conn, q, actor or None, action or None, entity or None, date_from or None,
                               date_to or None, sort, dir, page_no, page_size)
         facets = audit.facets(conn)
-    return page(request, "audit.html", user, result=result, facets=facets)
+    return lists.render(request, user, audit.AUDIT_LIST, result, "audit.html", facets=facets)

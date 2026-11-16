@@ -12,12 +12,12 @@
     <span class="grow"></span>{{ search(result, "Search name, email, ID or last 4 digits", {"status": status}) }}
   </div>
   <table class="t">
-    <thead><tr>{{ sort_th("ID", "id", result) }}{{ sort_th("Name", "name", result) }}{{ sort_th("Email", "email", result) }}<th>SSN</th><th>Bank account</th>{{ sort_th("Status", "kyc_status", result) }}<th style="text-align:right">Decision</th></tr></thead>
+    <thead><tr>{{ sort_th("ID", "id", result) }}{{ sort_th("Name", "name", result) }}{{ sort_th("Email", "email", result) }}<th>SSN</th><th>Bank account</th>{{ sort_th("Status", "kyc_status", result) }}{{ sort_th("Waiting", "waiting", result) }}<th style="text-align:right">Decision</th></tr></thead>
     <tbody>
     {% for c in result["items"] %}
-    <tr><td class="muted">#{{ c.id }}</td><td><a class="strong" href="/kyc/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.email }}</td><td class="mono">{{ c.ssn }}</td><td class="mono">{{ c.bank_account }}</td><td>{{ status_badge(c.kyc_status) }}</td>
+    <tr><td class="muted">#{{ c.id }}</td><td><a class="strong" href="/kyc/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.email }}</td><td class="mono">{{ c.ssn }}</td><td class="mono">{{ c.bank_account }}</td><td>{{ status_badge(c.kyc_status) }}</td><td class="muted">{{ c.waiting }}</td>
       <td><div class="row-actions">{% if c.kyc_status == "pending" %}{{ decide_form("/kyc/" ~ c.id ~ "/decision", approve_reasons, reject_reasons, "queue") }}{% else %}<a class="btn sm" href="/kyc/{{ c.id }}">Open</a>{% endif %}</div></td></tr>
-    {% else %}<tr><td colspan="7" class="empty">{{ "Nobody is waiting." if status == "pending" else "No customers match." }}</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="8" class="empty">{{ "Nobody is waiting." if status == "pending" else "No customers match." }}</td></tr>{% endfor %}
     </tbody>
   </table>
   {{ pager(result) }}
