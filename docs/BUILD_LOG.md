@@ -342,3 +342,16 @@ final reports below.
 - 02:26 worker A: `test_kyc.py` AC7 overlap test counted every audit row (9); a payout delivery attempt adds a `connector_message` row. Changed to count the 9 business events with `entity <> 'connector_message'` (same assertion on the same rows); the connector count is asserted after the merge.
 - Worker C (regions) own time 02:22 to 02:25; pushed `27740b0`; its `make test`: `55 passed, 1 skipped, 2 xfailed` (2 list tests waiting for worker B). Merged into the PR branch at 02:26: no conflicts; `make test` after merge: `55 passed, 1 skipped, 2 xfailed, 1 warning in 12.36s`.
 - Worker A (connections) own time 02:22:15 to 02:27:34; pushed `3bdb800`; its `make test`: `62 passed, 1 skipped`, `make test-scale`: `1 passed`. Merged at 02:28: no conflicts; `make test` after merge: `68 passed, 1 skipped, 2 xfailed, 1 warning in 14.80s`. Added the promised connector-attempt count (== 1) to the AC7 overlap test.
+- Worker B (shared lists) own time 02:22 to 02:29; pushed `1e4c27c`; its `make test`: `1 failed, 53 passed, 4 skipped` (its AC24 test correctly flagged `/admin/access-review`, which is in worker C's files), `make test-scale`: `4 passed`.
+- Feedback-test worker (session d1d002347d304dd79dc9b5a46771ed55, branch `devin/feedback-tests`, own time 02:15 to 02:26, 105 new tests) merged here too.
+
+## Stage 2: merge (me alone, 02:26 to 02:33 wall clock)
+
+- Merges: C at 02:26, A at 02:28, feedback tests at 02:29, B at 02:30. No textual merge conflicts.
+- Fixes after the merges (no test weakened):
+  1. `/admin/access-review` moved onto the shared list (`users.ACCESS_REVIEW_LIST`, `lists.render`), as worker B asked. A missing `lists` import from the merge was fixed.
+  2. `GET /api/kyc/queue` still used the old unscoped query: worker C's AC20 test caught an EU reviewer seeing a US customer. It now goes through the shared customer list with region scope.
+  3. `PUT /api/settings/{key}` used a plain `bool`, so `"off"` turned the KYC rule off (found by the feedback-test worker); now `StrictBool`.
+  4. Feedback tests: two strict xfails now pass (role checkboxes, StrictBool) and their markers were removed; worker C's two "needs worker B" xfails were unmarked and pass. Two feedback assertions counted rows or events that the merged behaviour changes on purpose: the charge picker shows "KYC pending/rejected" instead of a Refund button (count of rows still 25), and the audit total includes 2 payout delivery events (11 instead of 9).
+- Contracts changed after stage 0: `005` triggers (worker A), `test_kyc.py` event count split (worker A). No signature in `connectors.py`, `lists.py` or `scope.py` changed; `lists.register` and `ListSpec` were used as published.
+- `make test` after stage 2: `296 passed, 4 skipped, 1 warning in 58.81s`.
