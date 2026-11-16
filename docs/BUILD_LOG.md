@@ -165,3 +165,40 @@ Other things it found, logged and not fixed:
    only create and approve).
 8. Not checked by it: whether tests leave `./data/` byte-identical, `make access-review`, a line by
    line read of the tests.
+
+## Block 5: second `tool2-done` check (01:17 to 01:24)
+
+- 01:17 CI `test` green on `61ce8e7`; local `make verify`: `47 passed, 1 skipped`, `AC3 PASS`.
+  Force-moved `tool2-done` from `aa7e5e3` to `61ce8e7` and started a third fresh check (child session
+  de15b69de0d5481c841a678596603ac7).
+- 01:21 it reported **AC7 FAIL again**: a reason like `123-45-6901-17-2231` was masked once to
+  `***-**-6901-17-2231`, which still holds the stored SSN `901-17-2231`. 14 `audit_event` rows and 18
+  `refund` rows in its run held an exact stored SSN, readable by agents, approvers and the admin. So
+  the moved tag was also on a commit that did not meet AC7. AC2, AC4, AC5, AC6, AC8, AC10, AC13 and
+  AC14 passed in that run. No stored bank account value leaked.
+- Fix (the failed criterion only): `redact_text` now repeats until nothing matches. Added
+  `test_ac7_ssn_overlapping_an_ssn_shaped_prefix_never_reaches_an_audit_row` and
+  `test_redacted_text_never_contains_an_ssn_or_long_digit_run` (20,000 generated strings); both fail
+  without the fix. No existing test was changed.
+- The tag is not moved again until a fresh check of the fixed commit reports AC7 as passing.
+
+Its make output on `61ce8e7` (result lines; full text in its session), every command exit 0:
+
+```
+$ make setup        -> data/app.db: applied [1, 2]; now at [1, 2]
+$ make seed         -> seeded demo data into data/app.db
+$ make verify       -> 47 passed, 1 skipped, 1 warning in 6.40s
+                       AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 10466)
+$ make test         -> 47 passed, 1 skipped, 1 warning in 5.98s
+$ make verify       -> 47 passed, 1 skipped, 1 warning in 6.11s
+                       AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 11996)
+$ make seed-scale   -> seeded 50000 refunds into data/scale.db: {'approved': 30000, 'pending_approval': 12500, 'rejected': 7500}
+$ make test-scale   -> 1 passed, 1 warning in 0.18s
+```
+
+Other things it found, logged and not fixed:
+1. One test is skipped in every `make test`, including CI (it is `tests/test_scale.py`, which needs
+   the scale database and runs under `make test-scale`).
+2. A limit change to the same value is still audited (before and after equal).
+3. `/kyc/{id}` shows full values to `kyc1` (audited); same point as in block 4.
+4. `data/app.db` held 3 refunds and 5 audit events after `make seed` (the seed creates them).
