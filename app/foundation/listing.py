@@ -9,7 +9,8 @@ MAX_PAGE_SIZE = 200
 def run_list(conn, *, select: str, frm: str, sorts: dict[str, str], default_sort: str, tiebreak: str,
              where: list[str] | None = None, params: dict | None = None, search: tuple[str, ...] = (),
              q: str | None = None, sort: str | None = None, direction: str | None = None,
-             page: int = 1, page_size: int = 25, default_dir: str = "asc") -> dict:
+             page: int = 1, page_size: int = 25, default_dir: str = "asc",
+             offset: int | None = None) -> dict:
     sort = sort or default_sort
     direction = (direction or default_dir).lower()
     if sort not in sorts:
@@ -27,7 +28,7 @@ def run_list(conn, *, select: str, frm: str, sorts: dict[str, str], default_sort
     order = f"{sorts[sort]} {direction}, {tiebreak} {direction}"
     rows = conn.execute(
         text(f"SELECT {select} FROM {frm} {clause} ORDER BY {order} LIMIT :_l OFFSET :_o"),
-        {**params, "_l": page_size, "_o": (page - 1) * page_size},
+        {**params, "_l": page_size, "_o": (page - 1) * page_size if offset is None else offset},
     ).mappings()
     return {"items": [dict(r) for r in rows], "total": total, "page": page, "page_size": page_size,
             "pages": max(1, -(-total // page_size)), "q": q, "sort": sort, "dir": direction}

@@ -488,7 +488,7 @@ def api_audit(request: Request, entity: str | None = None, entity_id: str | None
         if entity and entity_id:
             return {"items": audit.history(conn, entity, entity_id)}
         if q or actor or action or entity:
-            found = audit.search(conn, q, actor, action, entity, page=offset // limit + 1, page_size=limit)
+            found = audit.search(conn, q, actor, action, entity, page_size=limit, offset=offset)
             return {"items": found["items"], "total": found["total"]}
         return {"items": audit.recent(conn, limit, offset)}
 

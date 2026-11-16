@@ -55,7 +55,8 @@ def recent(conn, limit: int = 100, offset: int = 0) -> list[dict]:
 
 
 def search(conn, q=None, actor=None, action=None, entity=None, date_from=None, date_to=None,
-           sort=None, direction=None, page: int = 1, page_size: int = 50) -> dict:
+           sort=None, direction=None, page: int = 1, page_size: int = 50,
+           offset: int | None = None) -> dict:
     where, params = [], {}
     for column, value in (("actor", actor), ("action", action), ("entity", entity)):
         if value:
@@ -73,7 +74,7 @@ def search(conn, q=None, actor=None, action=None, entity=None, date_from=None, d
         sorts={"id": "a.id", "when": "a.created_at", "actor": "a.actor", "action": "a.action",
                "entity": "a.entity"},
         default_sort="id", default_dir="desc", tiebreak="a.id", sort=sort, direction=direction,
-        page=page, page_size=page_size)
+        page=page, page_size=page_size, offset=offset)
     result["items"] = [_row(r) for r in result["items"]]
     result.update(actor=actor or "", action=action or "", entity=entity or "",
                   date_from=date_from or "", date_to=date_to or "")
