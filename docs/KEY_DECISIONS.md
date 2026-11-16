@@ -1,7 +1,7 @@
 # Key decisions
 
 **The question I chose to answer.** The VP asked "can Devin build these tools?" I thought that was the
-easy part and the wrong test. A coding agent can obviously produce a refunds screen. What the client
+easy part and the wrong test. What the client
 pays $250k for is what sits under the screens: shared data, server-side permissions, approvals, audit,
 and someone else running it. So I scoped the prototype to test one thing the decision turns on: once
 that layer exists in code, what does the next tool cost, and what does the client now own?
@@ -17,16 +17,16 @@ scopes were on the table.
 | A config-driven tool engine | Strongest scaling story on paper; in two hours it becomes a worse rebuild of Power Apps |
 | **Refunds + a light KYC review** | The smallest pair with shared customer data and a rule that crosses tools (no refund until KYC is approved) |
 
-The price of that choice was depth. KYC has no claim/lock, escalation or documents, and the screens are
-plain tables and forms. I accepted a thinner demo to get evidence on reuse. The third tool, limit
+The price was depth: KYC has no claim/lock, escalation or documents, and the screens are plain tables
+and forms. The third tool, limit
 overrides, is one the client does not have. I added it last and timed it alone, because the first two
 tools shaped the foundation and so could not fairly test it.
 
 **Architecture tradeoffs.**
-- *Foundation first, tools thin.* The per-tool cost is the number that decides build versus buy. The cost is coupling: a foundation change touches every tool, the same lock-in the client has today, now self-inflicted.
+- *Foundation first, tools thin.* The per-tool cost is the number that decides build versus buy. The cost is coupling: a foundation change touches every tool.
 - *Critical rules in the database, not only the application.* Self-approval, the KYC gate, the limit cap and the append-only audit log are triggers. A rule in one tool's code does not bind the next tool or a script. Triggers are harder to read and change, so only rules whose failure is a control failure went there.
 - *Workflow as declared states and guards, not hand-written per tool.* This is what made tool 3 cheap. It will fit unusual processes badly, and I did not test one.
-- *SQLite, stubbed login, fake payment services.* I spent the two hours on controls, not infrastructure. This is the largest hole in the evidence: hosting, SSO and real integrations are where a real build's cost sits, and I measured none of it.
+- *SQLite, stubbed login, fake payment services.* I spent the two hours on controls, not infrastructure. That is the largest hole in the evidence: hosting, SSO and real integrations are where a real build's cost sits.
 
 **How I used Devin, and why.** I wrote the spec with numbered acceptance criteria in a planning session
 and gave only the spec to a fresh build session, so the instructions an engineer would need are on the
@@ -36,8 +36,8 @@ the builder's own tests passed. The cost is that my time moved into writing and 
 was more than half of the total.
 
 **Where I was wrong or changed course.**
-- My first spec was met in full and was still too thin to stand in for the platform: no integrations, no record-level access, bare lists. The failure was mine, not the build's, and a second spec fixed it.
-- Devin challenged an admin-set auto-approve limit as a one-person control. I kept it for the operations team's sake, but added a hard $750 cap enforced in the database.
+- My first spec was met in full and was still too thin to stand in for the platform: no integrations, no record-level access, bare lists. That was my spec's failure, and a second spec fixed it.
+- Devin challenged an admin-set auto-approve limit as a one-person control. I kept it, but added a hard $750 cap enforced in the database.
 - A later review found admin changes that weakened controls with no recorded reason. A third spec closed that.
 
 **What I would not claim from this.** Three synthetic tools show the pattern is feasible and the next
