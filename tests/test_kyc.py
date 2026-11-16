@@ -313,7 +313,8 @@ def test_ac7_ssn_overlapping_an_ssn_shaped_prefix_never_reaches_an_audit_row(log
     assert admin.put("/api/settings/auto-approve-limit",
                      json={"value_cents": 0, "reason": overlapping[2]}).status_code == 200
     assert admin.post("/admin/settings", data={"value_cents": "0", "reason": overlapping[0]}).status_code == 200
-    assert sql.execute("SELECT COUNT(*) FROM audit_event").fetchone()[0] == 9
+    # 9 business events; connector delivery attempts (BUILD_SPEC_2) are counted separately.
+    assert sql.execute("SELECT COUNT(*) FROM audit_event WHERE entity <> 'connector_message'").fetchone()[0] == 9
     for table in ("audit_event", "refund"):
         for row in sql.execute(f"SELECT * FROM {table}").fetchall():
             blob = " ".join("" if value is None else str(value) for value in tuple(row))
