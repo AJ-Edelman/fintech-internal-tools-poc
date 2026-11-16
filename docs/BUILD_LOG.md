@@ -459,3 +459,10 @@ Times come from chat timestamps and commit times (UTC).
 - 03:09:05: worker B finished (it started 03:07:02) at `be3cde6`: `1 failed, 299 passed, 4 skipped, 1 warning in 52.53s`. The failing test is `tests/test_lists.py::test_ac18_customers_refunds_and_kyc_lists_small`, whose `_more_data` fixture inserts historical rejected refunds by SQL for non-KYC customers, and the 2(b) insert trigger now refuses them. I merged B with no conflict. In `_more_data` I turn `refund_requires_kyc` off only while those rows are loaded and back on afterwards. The rows and every assertion are unchanged, and afterwards `44 passed` covers test_lists, test_data_layer_rules and test_seed_and_kyc_queue.
 - 03:10:36: worker A finished (it started 03:07:02) at `d3e3e86`: `355 passed, 4 skipped, 1 warning in 67.08s (0:01:07)`. I merged it at 03:11 with no conflict. I checked its changes to existing tests: each one supplies a reason for a control-weakening write and asserts that the reason is on the audit event. The no-reason assertions for the limit, timeout and reason lists remain. No assertion was removed.
 - Contract changes after stage 0: none to main.py, conftest.py or workflow.py.
+- 03:11 to 03:12: stage 2 `make verify` exit 0:
+```
+394 passed, 4 skipped, 1 warning in 68.69s (0:01:08)
+AC3: server stopped (pid 84124); refund 1 had 2 audit events
+AC3 PASS: refund 1 and its 2 audit events survived the restart (new pid 84126)
+```
+- 03:12: a Devin Review finding on `82b13b7`: `GET /api/kyc/queue?sort=waiting` returned 422 because the API used the customer list spec, not the KYC queue spec. I fixed it in `aea459d` (the API now uses `KYC_QUEUE`) and added `test_kyc_queue_api_sorts_by_waiting_time_like_the_page`.
