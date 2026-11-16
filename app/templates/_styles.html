@@ -93,7 +93,7 @@ details.raw pre{background:var(--bg);border:1px solid var(--line);border-radius:
 .setting{display:grid;grid-template-columns:1fr 340px;gap:24px;padding:20px;border-bottom:1px solid var(--line)}
 .setting:last-child{border-bottom:0}.setting p{margin:4px 0 0;color:var(--muted);font-size:13px}
 .setting form{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}.setting form .grow{flex:1}
-@media(max-width:900px){.setting{grid-template-columns:1fr}.side{display:none}.main{padding:20px}}
+@media(max-width:900px){.setting{grid-template-columns:1fr}.shell{flex-direction:column}.side{width:auto;height:auto;position:static;border-right:0;border-bottom:1px solid var(--border)}.nav{display:flex;flex-wrap:wrap;gap:2px 4px;padding:0 12px 8px}.nav h6{display:none}.main{padding:20px}}
 .switch{display:inline-flex;align-items:center;gap:8px;font-weight:500}
 .inline-form{display:inline}
 </style>
