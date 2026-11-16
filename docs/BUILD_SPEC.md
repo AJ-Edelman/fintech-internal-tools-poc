@@ -87,8 +87,7 @@ What it does, prerequisites, clean-start steps, demo users, a short demo walkthr
 - Per work block: start and end time, what was asked, what you did, failures and rework.
 - Every tool 1 file changed during tool 2, labelled: expected rule change, setup-data change, foundation change, or assertion change (with the reason).
 - At the end: elapsed time for each tool, `git diff --stat tool1-done tool2-done`, ACUs if visible, and each AC as passing, failing or not run.
-- Anything given to a subagent, and any rework its output needed.
 - Record only what you observed. Don't estimate missing numbers, and don't mark anything as verified by a human.
 
 ## Time limit: 120 minutes, hard
-You may use subagents for pieces that touch separate files (for example the scale seed, CI, the README). Don't start tool 2 before `tool1-done` is tagged. Stop feature work at minute 90 and use the rest to verify, push and write up. At 120, stop and report the real status. If tool 1 isn't passing by minute 70, skip tool 2 and say so. Cut first: the 50,000-row seed (keep the small paging test), then `make access-review`. Never cut a permission check, the cap, the threshold, audit rules or the cross-tool rule without logging it.
+Stop feature work at minute 90 and use the rest to verify, push and write up. At 120, stop and report the real status. If tool 1 isn't passing by minute 70, skip tool 2 and say so. Cut first: the 50,000-row seed (keep the small paging test), then `make access-review`. Never cut a permission check, the cap, the threshold, audit rules or the cross-tool rule without logging it.
