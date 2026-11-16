@@ -147,7 +147,7 @@ Cost rules:
 
 ## Step 6: Loom: decide content, then script `[COLLAB]`
 
-1. **Content decisions first** `[COLLAB]`: for each of the 5 required topics, agree on the 1-3 points we make, the evidence behind them, and what we cut. Recorded in `docs/LOOM_OUTLINE.md`.
+1. **Content decisions first** `[COLLAB]`: for each of the 5 required topics, agree on the 1-3 points we make, the evidence behind them, and what we cut.
    1. The most important aspects of Power Apps.
    2. How Devin helps if they build, shown through the prototype.
    3. What's replicable, what isn't, and where the risk lies.
