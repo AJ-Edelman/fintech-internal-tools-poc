@@ -39,7 +39,7 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 - [x] Framing decisions agreed (3 paths, layered comparison, avoidable cost, existing vs new apps)
 - [x] Step 1: Constraints, assumption register, pain points (ASSUMPTIONS.md)
 - [x] Step 2: Bounded, sourced research (research/RESEARCH.md). Scope A2 locked
-- [ ] Step 3a: Pre-prototype gate (BUILD_SPEC.md drafted, awaiting review)
+- [x] Step 3a: Pre-prototype gate (BUILD_SPEC.md and KICKOFF_PROMPT.md approved)
 - [ ] Step 3b: Prototype + evidence log + verification scripts + README
 - [ ] Step 4: Evaluate (7 lenses, transition vs steady-state, no double counting)
 - [ ] Step 4b: Recommendation (path, conditions, what changes it, next steps + Devin's role)
