@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_ui.html" import sort_th, pager, status_badge, refund_action with context %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block body %}
+<div class="head"><div><div class="crumb"><a href="/customers">Customers</a> / #{{ customer.id }}</div>
+<h1>{{ customer.name }} <span style="vertical-align:middle">{{ status_badge(customer.kyc_status) }}</span></h1><p>{{ customer.email }}</p></div>
+{% if user.can("kyc:review") and customer.kyc_status == "pending" %}<a class="btn primary" href="/kyc/{{ customer.id }}">Review KYC</a>{% endif %}</div>
+{% if customer.pii_revealed %}<div class="alert note">Full SSN and bank account are shown. This view was written to the audit log.</div>{% endif %}
+<div class="card"><div class="card-h"><h2>Profile</h2></div><div class="card-b">
+  <dl class="kv"><dt>Customer ID</dt><dd>#{{ customer.id }}</dd><dt>Email</dt><dd>{{ customer.email }}</dd>
+  <dt>SSN</dt><dd class="mono">{{ customer.ssn }}</dd><dt>Bank account</dt><dd class="mono">{{ customer.bank_account }}</dd>
+  <dt>KYC status</dt><dd>{{ status_badge(customer.kyc_status) }}</dd></dl>
+</div></div>
+<div class="card"><div class="card-h"><h2>Charges</h2></div>
+  <table class="t">
+    <thead><tr>{{ sort_th("Charge", "id", result) }}{{ sort_th("Date", "created_at", result) }}{{ sort_th("Amount", "amount", result, "num") }}{{ sort_th("Refunded or pending", "refunded", result, "num") }}{{ sort_th("Refundable", "remaining", result, "num") }}<th></th></tr></thead>
+    <tbody>
+    {% for c in result["items"] %}<tr><td class="strong">#{{ c.id }}</td><td class="muted">{{ c.created_at | day }}</td><td class="num">{{ c.amount_cents | dollars }}</td><td class="num muted">{{ c.committed_cents | dollars }}</td><td class="num strong">{{ c.remaining_cents | dollars }}</td>
+      <td class="num">{{ refund_action(c) }}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty">No charges.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {{ pager(result) }}
+</div>
+{% endblock %}

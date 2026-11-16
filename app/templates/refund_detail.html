@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_badge, decide_form, history_timeline with context %}
+{% block title %}Refund {{ refund.id }}{% endblock %}
+{% block body %}
+<div class="head"><div><div class="crumb"><a href="/refunds">Refunds</a> / #{{ refund.id }}</div>
+<h1>{{ refund.amount_cents | dollars }} refund <span style="vertical-align:middle">{{ status_badge(refund.status) }}</span></h1>
+<p>Refund #{{ refund.id }} for {{ refund.customer_name }}, charge #{{ refund.charge_id }}</p></div></div>
+{% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+<div class="grid g3">
+  <div>
+    {% if refund.status == "pending_approval" and user.can("refund:approve") %}
+    <div class="card"><div class="card-h"><div><h2>Decision</h2><p>Choose a reason, then approve or reject.</p></div></div><div class="card-b">
+      {% if refund.requested_by == user.username %}<p class="muted" style="margin:0">You requested this refund, so another approver must decide it.</p>
+      {% else %}{{ decide_form("/refunds/" ~ refund.id ~ "/decision", approve_reasons, reject_reasons) }}{% endif %}
+    </div></div>
+    {% endif %}
+    <div class="card"><div class="card-h"><h2>Audit history</h2></div><div class="card-b">{{ history_timeline(history) }}</div></div>
+  </div>
+  <div class="card"><div class="card-h"><h2>Details</h2></div><div class="card-b">
+    <dl class="kv" style="grid-template-columns:120px 1fr">
+      <dt>Amount</dt><dd>{{ refund.amount_cents | dollars }}</dd>
+      <dt>Status</dt><dd>{{ status_badge(refund.status) }}</dd>
+      <dt>Customer</dt><dd><a href="/customers/{{ refund.customer_id }}">{{ refund.customer_name }}</a></dd>
+      <dt>Charge</dt><dd>#{{ refund.charge_id }} · {{ refund.charge_amount_cents | dollars }}</dd>
+      <dt>Requested by</dt><dd>{{ refund.requested_by }}</dd>
+      <dt>Decided by</dt><dd>{{ refund.decided_by or "Not yet" }}</dd>
+      <dt>Reason</dt><dd>{{ refund.reason }}</dd>
+      <dt>Created</dt><dd>{{ refund.created_at | when }}</dd>
+    </dl>
+  </div></div>
+</div>
+{% endblock %}
