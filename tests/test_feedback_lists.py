@@ -306,7 +306,8 @@ def test_users_search_filter_sort_page(login, sql):
     assert names("/api/users?role=refund_agent&q=2") == ["agent2"]
     assert names("/api/users?status=inactive") == []
     assert admin.put(f"/api/users/{sql.execute('SELECT id FROM app_user WHERE username = ?', ('agent2',)).fetchone()[0]}"
-                     "/active", json={"active": False}).status_code == 200
+                     "/active", json={"active": False, "reason": "Access review"}).status_code == 200
+    assert sql.execute("SELECT reason FROM audit_event WHERE action = 'user.deactivate'").fetchone()[0] == "Access review"
     assert names("/api/users?status=inactive") == ["agent2"]
     assert names("/api/users?status=active&role=refund_agent") == ["agent1"]
     assert names("/api/users?sort=status&dir=asc")[0] == "agent2"

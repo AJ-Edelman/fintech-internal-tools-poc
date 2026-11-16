@@ -2,6 +2,7 @@
 maximum refund age), their audit trail and permissions, and the in-place upgrade across the admin-settings
 migration."""
 import json
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
@@ -24,7 +25,10 @@ def stored(sql, key):
 
 
 def put(client, key, value):
-    return client.put(f"/api/settings/{key}", json={"value": value})
+    body = {"value": value}
+    if key in ("refund_requires_kyc", "max_refund_age_days"):
+        body["reason"] = "Control review"
+    return client.put(f"/api/settings/{key}", json=body)
 
 
 def ago(**delta) -> str:
@@ -72,7 +76,8 @@ def test_auto_approve_limit_changes_without_a_reason_form_in_dollars(login, sql)
 
 def test_settings_page_asks_for_no_reason(login):
     html = login("admin1").get("/admin/settings").text
-    assert 'name="reason"' not in html
+    limit_form = re.search(r'(?s)<form method="post" action="/admin/settings">.*?</form>', html).group(0)
+    assert 'name="reason"' not in limit_form
     assert "Log out" in html and 'action="/logout"' in html
 
 
@@ -122,7 +127,8 @@ def test_every_setting_change_is_audited_with_who_when_old_new_and_no_reason(log
     events = audit_rows(sql, "setting", key)
     assert len(events) == 1
     event = events[0]
-    assert event["actor"] == "admin1" and event["action"] == "setting.change" and event["reason"] is None
+    expected_reason = "Control review" if key in ("refund_requires_kyc", "max_refund_age_days") else None
+    assert event["actor"] == "admin1" and event["action"] == "setting.change" and event["reason"] == expected_reason
     assert json.loads(event["before"]) == {"value": old} and json.loads(event["after"]) == {"value": new}
     datetime.strptime(event["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
     assert sql.execute("SELECT COUNT(*) FROM audit_event").fetchone()[0] == 1
@@ -175,13 +181,13 @@ def test_settings_forms(login, sql):
     admin = login("admin1")
     assert admin.post("/admin/settings/session_timeout_minutes", data={"value": "15"}).status_code == 200
     assert stored(sql, "session_timeout_minutes") == 15
-    assert admin.post("/admin/settings/refund_requires_kyc", data={}).status_code == 200  # unchecked box
+    assert admin.post("/admin/settings/refund_requires_kyc", data={"reason": "Control review"}).status_code == 200  # unchecked box
     assert stored(sql, "refund_requires_kyc") is False
-    assert admin.post("/admin/settings/refund_requires_kyc", data={"value": "on"}).status_code == 200
+    assert admin.post("/admin/settings/refund_requires_kyc", data={"value": "on", "reason": "Control review"}).status_code == 200
     assert stored(sql, "refund_requires_kyc") is True
-    assert admin.post("/admin/settings/max_refund_age_days", data={"value": ""}).status_code == 200
+    assert admin.post("/admin/settings/max_refund_age_days", data={"value": "", "reason": "Control review"}).status_code == 200
     assert stored(sql, "max_refund_age_days") is None
-    assert admin.post("/admin/settings/max_refund_age_days", data={"value": "45"}).status_code == 200
+    assert admin.post("/admin/settings/max_refund_age_days", data={"value": "45", "reason": "Control review"}).status_code == 200
     assert stored(sql, "max_refund_age_days") == 45
     response = admin.post("/admin/settings/reasons_kyc_approve",
                           data={"value": "Passport checked\r\n\r\n  Utility bill checked  \nOther\nPassport checked"})
@@ -193,8 +199,10 @@ def test_settings_forms(login, sql):
         before = stored(sql, key)
         assert admin.post(f"/admin/settings/{key}", data={"value": bad}).status_code == 422, (key, bad)
         assert stored(sql, key) == before
-    actions = sql.execute("SELECT actor, action, reason FROM audit_event").fetchall()
-    assert len(actions) == 6 and all(tuple(a) == ("admin1", "setting.change", None) for a in actions)
+    actions = sql.execute("SELECT actor, action, reason FROM audit_event ORDER BY id").fetchall()
+    assert len(actions) == 6 and [tuple(a) for a in actions] == [
+        ("admin1", "setting.change", reason) for reason in
+        (None, "Control review", "Control review", "Control review", "Control review", None)]
 
 
 def test_settings_page_shows_dollars_and_every_setting(login):
@@ -380,7 +388,7 @@ def test_max_refund_age_can_be_changed_and_blank_means_no_limit(login, sql):
     response = request_refund(agent, charge_id=1, amount_cents=1000)
     assert response.status_code == 422 and "30 days" in response.json()["detail"]
     assert request_refund(agent, charge_id=2, amount_cents=1000).status_code == 422
-    assert admin.post("/admin/settings/max_refund_age_days", data={"value": ""}).status_code == 200
+    assert admin.post("/admin/settings/max_refund_age_days", data={"value": "", "reason": "Control review"}).status_code == 200
     assert request_refund(agent, charge_id=1, amount_cents=1000).status_code == 201
     assert request_refund(agent, charge_id=2, amount_cents=1000).status_code == 201
     html = admin.get("/admin/settings").text

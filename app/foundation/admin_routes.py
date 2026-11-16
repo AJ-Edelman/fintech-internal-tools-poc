@@ -27,10 +27,12 @@ class NewUserBody(BaseModel):
 class RolesBody(BaseModel):
     role_names: list[str]
     region: str | None = None
+    reason: str | None = None
 
 
 class ActiveBody(BaseModel):
     active: bool
+    reason: str | None = None
 
 
 @router.get("/api/access-review")
@@ -58,14 +60,14 @@ def api_add_user(request: Request, body: NewUserBody, user: User = Depends(requi
 def api_set_roles(request: Request, user_id: int, body: RolesBody,
                   user: User = Depends(require("user:manage"))):
     with tx(request) as conn:
-        return users.set_roles(conn, user, user_id, body.role_names, body.region)
+        return users.set_roles(conn, user, user_id, body.role_names, body.region, body.reason)
 
 
 @router.put("/api/users/{user_id}/active")
 def api_set_active(request: Request, user_id: int, body: ActiveBody,
                    user: User = Depends(require("user:manage"))):
     with tx(request) as conn:
-        return users.set_active(conn, user, user_id, body.active)
+        return users.set_active(conn, user, user_id, body.active, body.reason)
 
 
 def _access_page(request, user, status_code=200, error=None, saved=None, **filters):
@@ -108,15 +110,15 @@ def add_user_submit(request: Request, username: str = Form(""), password: str = 
 
 @router.post("/admin/users/{user_id}/roles", response_class=HTMLResponse)
 def set_roles_submit(request: Request, user_id: int, role_names: list[str] = Form([]),
-                     region: str = Form(""), user: User = Depends(require("user:manage"))):
+                     region: str = Form(""), reason: str = Form(""),
+                     user: User = Depends(require("user:manage"))):
     return _user_action(request, user,
-                        lambda conn: users.set_roles(conn, user, user_id, role_names, region or None))
+                        lambda conn: users.set_roles(conn, user, user_id, role_names, region or None, reason))
 
 
 @router.post("/admin/users/{user_id}/active", response_class=HTMLResponse)
 def set_active_submit(request: Request, user_id: int, active: str = Form(""),
-                      user: User = Depends(require("user:manage"))):
+                      reason: str = Form(""), user: User = Depends(require("user:manage"))):
     return _user_action(request, user,
-                        lambda conn: users.set_active(conn, user, user_id, active == "1"))
-
+                        lambda conn: users.set_active(conn, user, user_id, active == "1", reason))
 

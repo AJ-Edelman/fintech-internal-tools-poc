@@ -9,6 +9,7 @@ from .auth import create_user
 from .errors import AppError
 from . import lists
 from .permissions import PERMISSION_LABELS, ROLE_LABELS, ROLE_PERMISSIONS, roles_granting
+from .pii import redact_text
 
 MANAGE = "user:manage"
 _USERNAME_RE = re.compile(r"^[a-z][a-z0-9_.-]{2,31}$")
@@ -148,7 +149,13 @@ def add_user(conn, actor, username, password, roles, region="ALL") -> dict:
     return _describe(_get(conn, user_id), roles, _regions_of(conn, user_id))
 
 
-def set_roles(conn, actor, user_id: int, roles, region=None) -> dict:
+def _required_reason(reason) -> str:
+    if not isinstance(reason, str) or not reason.strip():
+        raise AppError(422, "a reason is required")
+    return redact_text(reason.strip())
+
+
+def set_roles(conn, actor, user_id: int, roles, region=None, reason=None) -> dict:
     """Replace a user's roles. `region` applies to every role; None keeps each kept role's region
     (new roles get ALL)."""
     _require_manage(actor)
@@ -163,6 +170,7 @@ def set_roles(conn, actor, user_id: int, roles, region=None) -> dict:
         not any(r in roles_granting(MANAGE) for r in roles)
     if losing_manage and target["active"] and _other_active_managers(conn, user_id) == 0:
         raise AppError(422, "the last admin cannot be removed")
+    reason = _required_reason(reason)
     conn.execute(text("DELETE FROM role_assignment WHERE user_id = :u"), {"u": user_id})
     new_regions = {r: region or old_regions.get(r, "ALL") for r in roles}
     for role in roles:
@@ -170,11 +178,11 @@ def set_roles(conn, actor, user_id: int, roles, region=None) -> dict:
                      {"u": user_id, "r": role, "g": new_regions[role]})
     write_audit(conn, actor=actor.username, action="user.roles_change", entity="user", entity_id=user_id,
                 before={"username": target["username"], "roles": old, "regions": old_regions},
-                after={"username": target["username"], "roles": roles, "regions": new_regions})
+                after={"username": target["username"], "roles": roles, "regions": new_regions}, reason=reason)
     return _describe(target, roles, new_regions)
 
 
-def set_active(conn, actor, user_id: int, active: bool) -> dict:
+def set_active(conn, actor, user_id: int, active: bool, reason=None) -> dict:
     _require_manage(actor)
     if not isinstance(active, bool):
         raise AppError(422, "active must be true or false")
@@ -185,12 +193,13 @@ def set_active(conn, actor, user_id: int, active: bool) -> dict:
     if not active and any(r in roles_granting(MANAGE) for r in roles) \
             and _other_active_managers(conn, user_id) == 0:
         raise AppError(422, "the last admin cannot be deactivated")
+    reason = _required_reason(reason)
     conn.execute(text("UPDATE app_user SET active = :a WHERE id = :i"), {"a": int(active), "i": user_id})
     if not active:
         conn.execute(text("DELETE FROM user_session WHERE user_id = :i"), {"i": user_id})
     write_audit(conn, actor=actor.username, action="user.reactivate" if active else "user.deactivate",
                 entity="user", entity_id=user_id,
                 before={"username": target["username"], "active": bool(target["active"])},
-                after={"username": target["username"], "active": active})
+                after={"username": target["username"], "active": active}, reason=reason)
     target["active"] = int(active)
     return _describe(target, roles, _regions_of(conn, user_id))

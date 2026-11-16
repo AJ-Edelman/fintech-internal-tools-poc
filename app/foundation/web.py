@@ -280,6 +280,7 @@ class LimitBody(BaseModel):
 
 class SettingBody(BaseModel):
     value: StrictInt | StrictBool | list[str] | None = None
+    reason: str | None = None
 
 
 @router.get("/api/settings")
@@ -307,7 +308,7 @@ def api_set_limit(request: Request, body: LimitBody, user: User = Depends(requir
 def api_set_setting(request: Request, key: str, body: SettingBody,
                     user: User = Depends(require("settings:write"))):
     with tx(request) as conn:
-        return {"key": key, "value": settings.set_value(conn, user, key, body.value)}
+        return {"key": key, "value": settings.set_value(conn, user, key, body.value, body.reason)}
 
 
 def _settings_page(request, user, status_code=200, error=None, saved=None):
@@ -367,13 +368,13 @@ def settings_submit(request: Request, amount: str = Form(""), value_cents: str =
 
 @router.post("/admin/settings/{key}", response_class=HTMLResponse)
 def setting_submit(request: Request, key: str, value: str = Form(""),
-                   user: User = Depends(require("settings:write"))):
+                   reason: str = Form(""), user: User = Depends(require("settings:write"))):
     spec = settings.SPECS.get(key)
     if spec is None:
         raise AppError(404, f"setting {key} not found")
     try:
         with tx(request) as conn:
-            settings.set_value(conn, user, key, _parse_setting(spec, value))
+            settings.set_value(conn, user, key, _parse_setting(spec, value), reason)
     except AppError as exc:
         if exc.status != 422:
             raise
