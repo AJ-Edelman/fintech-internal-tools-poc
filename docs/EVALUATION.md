@@ -33,7 +33,7 @@ three layers, and only the first is measured.
 
 | Layer | Estimate | Basis |
 |---|---|---|
-| 1. This prototype | About 2 hours of planning and research (the author working with Devin), 94 minutes of active Devin build time (41 for the first build, then 14, 27 and 12 for feedback changes and two follow-up specs; 149 on the clock from first to last commit), and 30 minutes of reviewing the app: roughly 4 hours end to end. Devin usage (ACUs) was not captured | Hours are the author's estimate; build minutes are measured from the build log |
+| 1. This prototype | About 2 hours of planning and research (the author working with Devin), 94 minutes of active Devin build time (41 for the first build, then 14, 27 and 12 for feedback changes and two follow-up specs; time between sessions is excluded), and 30 minutes of reviewing the app: roughly 4 hours end to end. Devin usage (ACUs) was not captured | Hours are the author's estimate; build minutes are measured from the build log |
 | 2. A production foundation | Not measured. Needs SSO and MFA, hosting, backups, encryption, retention, monitoring and real integrations. Expect engineer-weeks, to be sized by the client's own team | Assumed |
 | 3. Each further tool | A written spec, a Devin build, independent checks and human review. Tool 2 took 2 minutes to a first passing run and 28 with checks and fixes; tool 3 took 2 minutes (about 100 and 314 lines of tool code, with one foundation file changed for tool 3) | Measured, and a low end: both tools were simple and synthetic |
 
