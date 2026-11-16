@@ -1,12 +1,13 @@
 """Admin user management: add users, change roles, deactivate. Every change is audited."""
 import re
+from dataclasses import replace
 
 from sqlalchemy import text
 
 from .audit import write_audit
 from .auth import create_user
 from .errors import AppError
-from .listing import run_list
+from . import lists
 from .permissions import PERMISSION_LABELS, ROLE_LABELS, ROLE_PERMISSIONS, roles_granting
 
 MANAGE = "user:manage"
@@ -53,6 +54,16 @@ def _describe(row: dict, roles: list[str], regions: dict | None = None) -> dict:
             "can": [PERMISSION_LABELS.get(p, p) for p in perms]}
 
 
+_ROLES_EXPR = "(SELECT group_concat(ra.role, ' ') FROM role_assignment ra WHERE ra.user_id = u.id)"
+ACCESS_REVIEW_LIST = lists.register(lists.ListSpec(
+    name="access_review", permission="access_review:read", source="app_user u",
+    columns=(lists.Column("username", "User", "u.username", searchable=True, sortable=True),
+             lists.Column("status", "Status", "u.active", sortable=True),
+             lists.Column("id", "ID", "u.id", sortable=True),
+             lists.Column("roles", "Roles", _ROLES_EXPR, searchable=True)),
+    default_sort="username", tiebreak="u.id", extra={"select": "u.id, u.username, u.active"}))
+
+
 def list_users(conn, q=None, role=None, status=None, sort=None, direction=None,
                page: int = 1, page_size: int = 25) -> dict:
     where, params = [], {}
@@ -66,12 +77,10 @@ def list_users(conn, q=None, role=None, status=None, sort=None, direction=None,
             raise AppError(422, "status must be active or inactive")
         where.append("u.active = :active")
         params["active"] = 1 if status == "active" else 0
-    result = run_list(
-        conn, select="u.id, u.username, u.active", frm="app_user u", where=where, params=params,
-        search=("u.username", "(SELECT group_concat(ra.role, ' ') FROM role_assignment ra WHERE ra.user_id = u.id)"),
-        q=q, sorts={"username": "u.username", "status": "u.active", "id": "u.id"},
-        default_sort="username", tiebreak="u.id", sort=sort, direction=direction,
-        page=page, page_size=page_size)
+    spec = replace(ACCESS_REVIEW_LIST, where=tuple(where), extra={**ACCESS_REVIEW_LIST.extra, "params": params})
+    query = {k: str(v) for k, v in {"q": q, "sort": sort, "dir": direction, "page": page,
+                                    "page_size": page_size}.items() if v not in (None, "")}
+    result = lists.run(conn, spec, None, query)
     result["items"] = [_describe(row, _roles_of(conn, row["id"]), _regions_of(conn, row["id"]))
                        for row in result["items"]]
     result.update(role=role or "", status=status or "")

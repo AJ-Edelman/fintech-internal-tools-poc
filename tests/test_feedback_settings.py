@@ -156,9 +156,6 @@ def test_setting_values_of_the_wrong_json_type_are_rejected(login, sql):
     assert sql.execute("SELECT COUNT(*) FROM audit_event").fetchone()[0] == 0
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "app bug: PUT /api/settings/refund_requires_kyc accepts strings; SettingBody.value is a lax pydantic bool, "
-    "so 'off' / 'no' / '0' are silently coerced to false and switch the KYC rule off (expected 422)"))
 @pytest.mark.parametrize("bad", ["off", "no", "0", "on", "true"])
 def test_kyc_switch_api_rejects_strings(login, sql, bad):
     response = put(login("admin1"), "refund_requires_kyc", bad)

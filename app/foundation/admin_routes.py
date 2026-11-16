@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import users
+from . import lists, users
 from .auth import User, require
 from .errors import AppError
 from .listing import MAX_PAGE_SIZE
@@ -72,8 +72,8 @@ def _access_page(request, user, status_code=200, error=None, saved=None, **filte
     with tx(request) as conn:
         result = users.list_users(conn, **filters) if filters else users.list_users(conn)
         overview = users.role_overview(conn)
-    return page(request, "access_review.html", user, status_code=status_code, result=result,
-                overview=overview, role_labels=ROLE_LABELS, all_roles=list(ROLE_PERMISSIONS),
+    return lists.render(request, user, users.ACCESS_REVIEW_LIST, result, "access_review.html",
+                status_code=status_code, overview=overview, role_labels=ROLE_LABELS, all_roles=list(ROLE_PERMISSIONS),
                 error=error, saved=saved, min_password=users.MIN_PASSWORD,
                 region_choices=users.REGION_CHOICES)
 

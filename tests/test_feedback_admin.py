@@ -390,9 +390,6 @@ def test_users_api_never_returns_password_material(login, sql):
     assert "password" not in text_.lower()
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "app bug: the per-user role editor on /admin/access-review is a single-choice <select name=role_names>; "
-    "saving it for a user who holds two roles (e.g. refund_agent + refund_approver) silently drops one"))
 def test_role_editor_can_keep_a_user_with_two_roles(login, sql):
     admin = login("admin1")
     add(admin, "both", PASSWORD, ["refund_agent", "refund_approver"])

@@ -186,10 +186,11 @@ def test_charge_picker_is_a_searchable_sortable_table_not_a_dropdown(login, many
     for key in ("id", "customer", "created_at", "amount", "refunded", "remaining", "kyc_status"):
         assert f"sort={key}" in html, key
     assert "Page 1 of 2 (45 total)" in visible(html)  # 25 per page, not one endless list
-    assert html.count('href="/refunds/new?charge_id=') == 25
-    found = agent.get("/refunds/new?q=Cust 017").text
+    # 25 rows; since the UI polish, rows whose customer is not KYC-approved show the reason, not a button.
+    assert html.count('href="/refunds/new?charge_id=') + html.count('small muted">KYC ') == 25
+    found = agent.get("/refunds/new?q=Cust 019").text
     assert "Page 1 of 1 (1 total)" in visible(found)
-    assert found.count('href="/refunds/new?charge_id=') == 1 and 'href="/refunds/new?charge_id=22"' in found
+    assert found.count('href="/refunds/new?charge_id=') == 1 and 'href="/refunds/new?charge_id=24"' in found
     by_amount = agent.get("/refunds/new?sort=amount&dir=desc&page_size=3").text
     assert order(by_amount, "#8<", "#7<", "#6<", "#45<") == ["#8<", "#7<", "#6<"]  # equal amounts break on id
     assert "$2,000.00" in by_amount
@@ -328,7 +329,7 @@ def test_audit_search_filter_sort_page(refunds, login):
     assert total == 8  # five requests, one automatic approval, one reject, one approve
     assert get(admin, "/api/audit?actor=agent2")["total"] == 3
     assert get(admin, "/api/audit?action=refund.reject")["total"] == 1
-    assert get(admin, "/api/audit?actor=system")["items"][0]["action"] == "refund.auto_approve"
+    assert get(admin, "/api/audit?actor=system&entity=refund")["items"][0]["action"] == "refund.auto_approve"
     assert get(admin, "/api/audit?q=parcel")["total"] == 1
     assert get(admin, "/api/audit?q=Insufficient evidence")["items"][0]["actor"] == "approver1"
     assert get(admin, "/api/audit?actor=admin1&action=setting.change")["total"] == 1
@@ -343,7 +344,8 @@ def test_audit_search_filter_sort_page(refunds, login):
     html = admin.get("/admin/audit?entity=refund&sort=actor&dir=asc&page_size=3&page=3").text
     assert "Page 3 of 3 (8 total)" in visible(html)
     assert "(1 total)" in visible(admin.get("/admin/audit?q=parcel").text)
-    assert "(9 total)" in visible(admin.get("/admin/audit?date_from=2000-01-01&date_to=2999-12-31").text)
+    # 9 business events plus 2 payout delivery attempts (BUILD_SPEC_2 connections).
+    assert "(11 total)" in visible(admin.get("/admin/audit?date_from=2000-01-01&date_to=2999-12-31").text)
     assert "(0 total)" in visible(admin.get("/admin/audit?date_to=2000-01-01").text)
     assert "(0 total)" in visible(admin.get("/admin/audit?action=refund.reject&actor=agent1").text)
 

@@ -96,7 +96,6 @@ def test_ac20_eu_kyc_reviewer_cannot_decide_us_customer(login, sql, regions):
     assert login("kyc1").post("/api/kyc/2/decision", json={"decision": "reject", "reason": "Documents verified"}).status_code in (404, 409)
 
 
-@LISTS
 def test_ac20_eu_agent_detail_list_count_search_hide_us(login, regions):
     us_id = request_refund(login("agent1"), charge_id=1, amount_cents=100000).json()["id"]
     agent2 = login("agent2")
@@ -111,7 +110,6 @@ def test_ac20_eu_agent_detail_list_count_search_hide_us(login, regions):
     assert login("approver2").get("/api/refunds", params={"status": "pending_approval"}).json()["total"] == 0
 
 
-@LISTS
 def test_ac20_eu_kyc_queue_hides_us(login, sql, regions):
     sql.execute("UPDATE customer SET kyc_status = 'pending' WHERE id IN (1, 2)")
     queue = login("kyc2").get("/api/kyc/queue").json()

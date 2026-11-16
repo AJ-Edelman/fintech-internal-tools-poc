@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, StrictInt
+from pydantic import BaseModel, StrictBool, StrictInt
 
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -279,7 +279,7 @@ class LimitBody(BaseModel):
 
 
 class SettingBody(BaseModel):
-    value: StrictInt | bool | list[str] | None = None
+    value: StrictInt | StrictBool | list[str] | None = None
 
 
 @router.get("/api/settings")
