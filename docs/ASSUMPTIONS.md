@@ -1,0 +1,66 @@
+# Step 1: Constraints, Assumptions, Needs, Pain Points
+
+Status key: **Accepted** (taken as given) · **Confirmed** / **Refuted** (by sourced research) · **Open** (needs client data) · **Unresolvable** (state both cases).
+Sources: [`research/RESEARCH.md`](./research/RESEARCH.md) (S1–S31). Last updated 2026-11-15.
+
+## Fixed constraints
+- Series C fintech, ~60 engineers. Regulated workloads: KYC/AML (PII), refunds (money movement), feature flags (production change control).
+- $250k/yr on the internal-tool platform (Power Apps used as the proxy). 3 live apps, 10+ planned.
+- The VP's claims, tested separately: (a) Devin can build these tools, (b) license cost is saved, (c) full customization control.
+
+## Assumption register
+
+| # | Assumption | Status | Evidence / note |
+|---|---|---|---|
+| A1 | The platform behaves like Power Apps | Accepted | Proxy per the brief |
+| A2 | Licensing is per **end user**, not per builder | Confirmed (model) | Premium is $20/user/mo, unlimited apps per user [S1]; building is free, running needs paid licenses [S1]. The cost driver is ops headcount using apps, not engineers. |
+| A3 | Who builds today: engineers or ops citizen developers | Unresolvable | Both cases are stated. If ops builds, moving to code shifts work onto engineering. |
+| A4 | What makes up the $250k | Open, and **flagged** | At list price, $250k ÷ $240/user/yr ≈ **1,040 Premium users** [S1]. That likely exceeds the headcount of a company with 60 engineers, so the $250k probably also covers Power Automate [S2], Dataverse capacity add-ons [S1], per-app licenses [S2], partner/implementation fees, or an M365/Dynamics bundle [S3]. The **avoidable** cash depends on this split. |
+| A5 | Each new tool increases license cost | **Refuted (for per-user Premium)** | Premium covers unlimited apps per licensed user [S1]. A new tool for already-licensed users costs ~$0 in licenses; only new users or new capacity add cost. "Save money as we scale" only holds if new tools bring new users or the client is on per-app licensing ($5/user/app/mo [S2], no longer sold to new customers in some channels since 2026-01-02 [S3]). |
+| A6 | Building in-house = full control | Partially true | Control over code and UX is real. It also moves platform duties to the client (A8). |
+| A7 | Devin output can reach production grade for regulated data, with review | Open | Partly tested by the prototype; production viability is **not** established by it. |
+| A8 | The client has a cloud, an IdP, and CI/CD to deploy onto | Unresolvable (assumed yes) | **Having infrastructure ≠ free to host and maintain.** Every built app needs a named owning team for runtime, on-call, patching, access reviews, backups, and audit evidence. Today Microsoft owns the platform layer (encryption at rest, geo residency, platform patching [S12]); building moves that layer to the client. |
+| A9 | Cash license savings and engineering time are separate ledgers | Accepted (rule) | **Cash:** license avoided (depends on contract term, renewal date, minimums, and user overlap) − hosting − Devin spend − tooling. **Capacity:** engineering hours for build, review, migration, and ownership. They are never netted into one number. |
+| A10 | "Customization control" = freedom from coupling | **Refuted (sourced)** | Customization has two parts. (1) *Platform ceilings*: things that can't be done at all (delegation cap [S7], connector-bound integrations). Building removes these. (2) *Coupling*: shared components make one app's change ripple into others. This is documented: all unmanaged solutions share one unmanaged layer with no isolation [S15][S16]; most components follow "top wins" layering [S15]; Microsoft advises keeping all tables in one solution because cross-solution table relationships cause upgrade/delete failures, and solution dependencies enforce import order [S17]; editing a managed component creates a dependency that blocks uninstall [S16]. Building does **not** remove coupling: the shared foundation that makes tool N+1 cheap (A5, H1-S5) creates the same coupling. Building changes **who sets the boundaries** and who owns the breakage. |
+| A11 | Which rules apply to the client | Unresolvable (assumed) | FTC Safeguards Rule applies to non-bank financial institutions [S26]; NYDFS Part 500 only if NY-licensed [S28][S29]; BSA recordkeeping for money transmitters [S27]; bank partners may add their own. We use them as the requirements baseline, not as a legal determination. |
+
+## Pain-point hypotheses
+
+### H1 (primary): the cost of scaling the portfolio *while staying compliant*
+The decision turns on the **all-in cost per additional tool** (build + ownership + compliance/security overhead), not on license cost alone. "Scaling" is split into five dimensions:
+
+| Dimension | Buy (platform) | Build (Devin + own stack) | Status |
+|---|---|---|---|
+| S1 More tools (3 → 13) | License ~flat; Premium = unlimited apps per user [S1] | Each tool adds build, review, ownership | **Refuted as a cost driver.** Buy scales better here |
+| S2 More users (ops headcount growth) | Grows linearly, $240/user/yr at list [S1] | ~flat per user | Open. Possibly the real cost story |
+| S3 Delivery throughput (who builds, how fast) | Fast for simple apps; non-engineers can build | Engineering capacity is the bottleneck; Devin is the lever | Open |
+| S4 Data volume / complexity | Delegation cap (default 500, max 10,000 records), silent wrong results [S7]; integrations go through connectors | No inherent cap, but engineered | Open: have they hit it? |
+| S5 Governance across many apps | Central: roles, auditing, DLP, inventory [S4][S5][S8][S10] | Grows per app **unless** apps share one foundation | Open. Main build risk |
+
+**Compliance/security overhead cuts against building by default:** the platform bundles identity, row/column security, auditing, DLP, encryption, and residency [S5][S6][S8][S10][S12]. Each built app joins the client's audit scope (access reviews, change evidence, scanning, pen tests, incident response). That overhead scales per app unless the apps share a foundation.
+
+**It argues *for* building only if one of these is the actual pain:**
+- Audit gaps the platform doesn't cover, e.g. PII *read/export* logging (Dataverse auditing excludes reads and exports [S10]).
+- Auditors preferring git-based review/CI over platform pipelines [S9]. *Unverified.*
+- Citizen-developer sprawl raising the platform's governance burden too.
+- Vendor-risk / data-control requirements (e.g. PII must stay in their own cloud).
+
+**Implication:** Build wins only if S2, S3, or S4 dominate **and** a shared foundation keeps the per-tool compliance overhead near flat (S5). That is what the prototype's second tool is meant to test.
+
+### H2 (alternative): control or compliance, not scale
+The real pain is customization ceilings already hit or audit/change-control requirements, independent of portfolio size. If H2 holds, scale is secondary and the comparison is about capability fit.
+
+### H3 (stated by the VP, weakened): license savings
+Under per-user licensing the marginal license cost of tools 4–13 is ~$0 (A5). Cash savings mainly come from retiring the existing spend (path c), which requires migrating all 3 apps and decommissioning the platform.
+
+### Unknown: "why now"
+Possibly the 10+ tool pipeline, a renewal date, or Devin adoption. The renewal date sets when any cash savings could start. `OPEN`
+
+## Value the VP may be under-weighting
+- Built-in identity (Entra ID), role-based and column-level security [S5][S6], record auditing [S10], data policies/DLP across connectors [S8], and Managed Environments governance [S4]: all in the license and all things a regulated team must rebuild **and evidence** if it builds.
+- Microsoft-operated runtime: encryption, residency, platform patching [S12].
+- No-code approvals (Power Automate approvals connector, including sequential approvals [S11]).
+
+## Two questions, kept separate
+- **Existing 3 apps:** migration, parallel operation, retraining, data move out of Dataverse. Cash savings only arrive after the platform is fully decommissioned.
+- **10+ new tools:** a greenfield choice. Marginal license cost is likely low (A5), so the decision rests on fit, control, speed, and ownership cost.
