@@ -1,91 +1,93 @@
-# BUILD_SPEC: Shared internal-tools foundation + two tools (scope A2)
+# BUILD_SPEC: Shared internal-tools foundation + two tools
 
-You are building a working prototype in this repo. Read this file only; don't read the rest of `docs/`, to keep the build independent of the planning context. **Synthetic data only. No production credentials.**
+You are building a working prototype in this repo. Read this file only; don't read the rest of `docs/`. Work on a new branch, open a PR, and push the two tags named below. **Synthetic data only. No secrets committed.**
 
 ## Goal
-Show the pattern for a fintech building many internal tools on one shared foundation, rather than standalone apps:
-- **Tool 1:** refund requests with maker-checker approval.
-- **Tool 2:** a light KYC review.
-- **Shared:** both tools use one `customer` model, one permission model, one audit log and one workflow engine.
+Show the pattern for a fintech building many internal tools on one shared foundation:
+- **Tool 1:** refund requests with maker-checker approval (requests only; no money moves).
+- **Tool 2:** a light KYC review (a review workflow; no identity verification).
+- **Shared:** one `customer` model, one permission model, one audit log, one workflow engine.
 
 ## Stack (fixed)
-- Python 3.11+, FastAPI, SQLAlchemy, and SQLite (a file under `./data/`, which must persist across restarts).
-- Server-rendered HTML (Jinja2). Keep the UI minimal: tables plus forms.
-- pytest. GitHub Actions runs the tests on every push.
-- One command for each step: `make setup`, `make seed`, `make run`, `make test`, `make verify`.
+Python 3.11, FastAPI, SQLAlchemy, SQLite, Jinja2 pages (tables and forms only), pytest, GitHub Actions.
 
-## Foundation (`app/foundation/`), used by every tool
-1. **Identity (stubbed):** demo users log in with a demo password, which gives them a session. Every API and page requires a session. Role assignments are rows in a `role_assignment` table.
-2. **Permissions:** a `require(permission)` check on every route. Roles map to permissions in one place. Permissions are enforced on the server and never only hidden in the UI.
-3. **Audit:** an append-only `audit_event` table with actor, action, entity, entity id, before (JSON), after (JSON), reason and timestamp. **SQLite triggers must reject UPDATE and DELETE** on this table. No role, including admin, can edit it.
-4. **Workflow engine:** a small, generic state machine. Each tool declares its states, its transitions, the permission each transition needs, and guards. It has a built-in `no_self_approval` guard. Every transition writes an audit event.
-5. **Data-layer rules:** validation lives in the shared service or model layer, so every tool and every endpoint that writes a table enforces it. Use DB CHECK constraints where they fit.
-6. **PII masking:** serialization depends on the caller's role. `customer.ssn` shows as `***-**-1234` and `customer.bank_account` shows as `****1234` unless the caller has `pii:read`. Each unmasked read writes an audit event.
-7. **Access review:** `GET /admin/role-assignments` (admin only) and `make access-review` list who holds which role.
+| Command | Must do |
+|---|---|
+| `make setup` | Install dependencies and apply migrations |
+| `make seed` | Load the demo data into `./data/` |
+| `make run` | Start the server in the foreground |
+| `make test` | Run the tests on temporary databases; needs no server and never touches `./data/` |
+| `make verify` | `make test` plus AC3; starts and stops any server it needs |
+| `make seed-scale` | Build a separate scale database; never touches the demo database |
+| `make access-review` | Print who holds which role |
+
+## Foundation (`app/foundation/`), used by both tools
+1. **Identity (stubbed):** demo users log in with a password and get a session cookie. Everything except login requires a session. Role assignments are rows in `role_assignment`, read on the server for every request.
+2. **Permissions:** every route checks a permission, never a role name. The mapping lives in one place:
+
+   | Role | Permissions |
+   |---|---|
+   | `refund_agent` | `customer:read`, `refund:read`, `refund:create` |
+   | `refund_approver` | `customer:read`, `refund:read`, `refund:approve` |
+   | `kyc_reviewer` | `customer:read`, `pii:read`, `kyc:review` |
+   | `admin` | `access_review:read`, `audit:read` (not a superuser) |
+
+3. **Status codes:** no session → 401 (API) or redirect to login (page); permission denied → 403; rule or input violation → 422; decision on a record that is no longer pending → 409.
+4. **Audit:** `audit_event` holds actor, action, entity, entity id, before, after, reason and UTC time. The database rejects UPDATE and DELETE on it. Each change and its audit event commit together or not at all. **Audit rows never contain SSN or bank account values.**
+5. **Workflow engine:** each tool declares states, transitions, the permission each transition needs, and guards. Every transition writes an audit event. Keep it a small dispatcher: no DSL, plugins or background jobs.
+6. **PII:** `customer.ssn` shows as `***-**-1234` and `bank_account` as `****1234` everywhere, including lists and pages. The one exception is the customer detail view for a caller with `pii:read`, and each such view writes an audit event naming the fields shown.
+7. **Migrations:** numbered SQL files applied in order and recorded in the database. Schema changes never recreate the database.
 
 ## Shared model
 - `customer`: id, name, email, ssn, bank_account
-- `charge`: id, customer_id, amount_cents, created_at
+- `charge`: id, customer_id, amount_cents (integer, positive), created_at
 
-## Tool 1: Refunds (build first; tag `tool1-done` when it's finished)
-- A `refund_agent` creates a refund request for a charge, with an amount and a reason.
-- **Rule:** the total of all non-rejected refunds on a charge may not exceed the charge amount.
-- A request of $500 or less moves to `approved` automatically. A request over $500 stays `pending_approval` until a `refund_approver` approves or rejects it, with a reason. The requester can never approve their own request.
-- States: `pending_approval`, `approved`, `rejected`.
-- Pages: the list of refunds (paged on the server) and a form to create a request. Approvers see an approval queue.
+## Tool 1: Refunds (migration 001; tag `tool1-done` on a commit where `make test` passes)
+- A `refund_agent` requests a refund on a charge, with a positive amount in cents and a reason.
+- **Cap:** pending plus approved refunds on a charge may never exceed the charge amount. The database enforces this, so a direct SQL insert is rejected too.
+- **Threshold:** a request is approved automatically only if it keeps the charge's pending plus approved total at or below $500. The audit event records `system` as the approver and the agent as the requester. Otherwise it is `pending_approval`.
+- A `refund_approver` approves or rejects a pending request, with a reason. Nobody can decide a request they created.
+- Pages: refund list (paged on the server, filter by status), request form, approval queue, and a refund detail page showing its audit history.
+- API: `GET /api/refunds?status=&page=&page_size=` returns items ordered by id, plus the total.
 
-## Tool 2: KYC review (build second, on top of `tool1-done`; tag `tool2-done` when it's finished)
-- **Shared-model change (deliberate):** add `customer.kyc_status` (`pending` | `approved` | `rejected`) with a migration.
-- A `kyc_reviewer` works a queue of `pending` customers, opens a customer (unmasked PII, which is audited) and approves or rejects with a required reason. The decision uses the workflow engine.
-- **Cross-tool rule, enforced on the server in the refunds service:** a refund cannot be created or approved unless the customer's `kyc_status` is `approved`.
-- After tool 2, every tool 1 test must still pass. Some may need updating (for example, seeded customers need an approved KYC status). **Record every tool 1 test or file you had to change, and why**, in `docs/BUILD_LOG.md`. That record is the measure of coupling.
+## Tool 2: KYC review (migration 002; tag `tool2-done`)
+- Migration 002 adds `customer.kyc_status` (`pending` | `approved` | `rejected`). Existing customers become `pending`; data and audit history are kept.
+- A `kyc_reviewer` works a queue of pending customers, opens one, and approves or rejects it with a reason, through the workflow engine.
+- **Cross-tool rule:** a refund can be created or approved only if the customer's `kyc_status` is `approved`.
+- Tool 1 tests must still pass. You may update their setup data; you may not weaken what they assert.
 
 ## Seed data
-- `make seed`: about 20 customers in mixed KYC states and about 40 charges, plus these demo users, all with password `demo`: `agent1` (refund_agent), `agent2` (refund_agent), `approver1` (refund_approver), `kyc1` (kyc_reviewer), `admin1` (admin).
-- `make seed-scale`: 50,000 customers and charges, used only for the paging check.
+- `make seed`: about 20 customers in mixed KYC states, about 40 charges (some over $1,000 on approved customers), and users `agent1`, `agent2` (refund_agent), `approver1` (refund_approver), `kyc1` (kyc_reviewer), `admin1` (admin), all with password `demo`.
+- `make seed-scale`: 50,000 refunds with a fixed, known count per status.
 
-## Acceptance criteria (each one is an automated test against the HTTP API, not the UI)
+## Acceptance criteria
+Each is an automated test through HTTP unless marked. **[T1]** must pass at `tool1-done`; the rest at `tool2-done`.
+
 | # | Criterion |
 |---|---|
-| AC1 | From a fresh clone, `make setup && make seed && make run` starts the app, and `make verify` passes |
-| AC2 | The refund flow works end to end: an agent creates a $750 refund → it is `pending_approval` → the approver approves it → it is `approved`, and audit events exist for each step |
-| AC3 | **Persistence:** create a refund, restart the server process, and the refund and its audit events are still there |
-| AC4 | **Denied (self-approval):** a user who holds both roles cannot approve their own request. The response is 403 and the state is unchanged |
-| AC5 | **Denied (role):** an agent calling the approve endpoint directly gets 403 |
-| AC6 | **Rule:** a refund over the remaining refundable amount is rejected with 422, both through the API and through the form |
-| AC7 | **Masking:** an agent who fetches a customer gets masked SSN and bank account. A KYC reviewer gets full values, and an audit event records that read |
-| AC8 | **Tamper resistance:** a direct SQL UPDATE or DELETE on `audit_event` fails |
-| AC9 | **Reconstruction:** a refund's full history (who, what, before and after, reason, when) can be rebuilt from `audit_event` alone |
-| AC10 | **Cross-tool rule:** a refund for a customer whose KYC is `pending` or `rejected` gets 422 |
-| AC11 | **Scale:** after `make seed-scale`, a filtered, paged list returns the correct total (more than 10,000) and the correct pages |
-| AC12 | **Access review:** admin can list role assignments; anyone else gets 403 |
-| AC13 | CI runs `make test` on push and passes |
-
-## Non-goals
-These are out of scope; name them in the README's Limitations section:
-- Real SSO or MFA.
-- Production hosting, encryption at rest, backups.
-- Retention and disposal.
-- KYC claim/lock, escalation, document uploads.
-- The feature-flag tool.
-- Migrating data from the platform.
-- UI polish.
+| AC1 | [T1] From a fresh clone, `make setup && make seed && make verify` passes, and `make run` serves the login page |
+| AC2 | [T1] An agent requests $750 → `pending_approval` → an approver approves → `approved`, with an audit event per step. $500.00 on a fresh charge is approved by `system`; $500.01 is pending |
+| AC3 | [T1] (process) A refund and its audit events survive stopping and restarting the server |
+| AC4 | [T1] A test user holding both refund roles cannot approve their own request: 403, state unchanged, no approval audit event |
+| AC5 | [T1] An agent calling the approve endpoint gets 403. A refund agent calling the KYC decision endpoint gets 403 |
+| AC6 | [T1] Over the cap → 422 through the API and the form, including when two requests together exceed the charge. Rejecting a request frees its amount. (SQL) A direct insert over the cap fails |
+| AC7 | An agent sees masked values. A KYC reviewer sees full values on customer detail only, and that view is audited. No audit row contains a raw SSN or bank account |
+| AC8 | [T1] (SQL) UPDATE and DELETE on `audit_event` each fail and leave the row unchanged |
+| AC9 | [T1] A refund's history (who, what, before, after, reason, when) can be rebuilt from `audit_event` alone |
+| AC10 | Creating a refund for a `pending` or `rejected` customer → 422. Approving a refund that was requested before migration 002, for a customer who is not approved → 422 |
+| AC11 | On the scale database, `GET /api/refunds` with a status filter returns the known total (over 10,000) and the right rows on the first, a middle and the last page. A small version of this test runs in `make test` |
+| AC12 | [T1] Admin lists role assignments; other users get 403; no session gets 401 |
+| AC13 | (CI) GitHub Actions runs `make test` on every push, and the run for the final commit is green |
+| AC14 | (migration) A database at 001 with customers, refunds and audit events upgrades to 002 with every row intact |
 
 ## README (required)
-Cover: what it does, prerequisites, clean-start steps, seed data and demo users, how to run `make verify`, how the acceptance criteria map to tests, how to add tool N (the steps tool 2 followed), limitations, and reviewer access (local only).
+What it does, prerequisites, clean-start steps, demo users, a short demo walkthrough, which test covers each AC, how to add tool N (the steps tool 2 followed), and limitations. Limitations must include: no real SSO or MFA; no CSRF tokens; no production hosting, encryption at rest or backups; no retention or disposal; the audit log is append-only for the app but not tamper-proof against whoever controls the database file; no KYC claim/lock, escalation or documents; no data migrated from an existing platform; the scale test shows correct paging, not performance.
 
 ## Build log (`docs/BUILD_LOG.md`, append as you go)
-For each work block, record:
-- start and end time;
-- what you were asked to do and what you did;
-- failures and rework;
-- files and tests changed in tool 1 during tool 2.
+- Per work block: start and end time, what was asked, what you did, failures and rework.
+- Every tool 1 file changed during tool 2, labelled: expected rule change, setup-data change, foundation change, or assertion change (with the reason).
+- At the end: elapsed time for each tool, `git diff --stat tool1-done tool2-done`, ACUs if visible, and each AC as passing, failing or not run.
+- Record only what you observed. Don't estimate missing numbers, and don't mark anything as verified by a human.
 
-At the end, record:
-- tool 1 and tool 2 elapsed time;
-- `git diff --stat tool1-done tool2-done`;
-- ACUs used, if they're visible.
-
-Mark clearly which steps were human-directed and which were verified by a human.
-
-**Time box: about 2 hours total.** If you're running over, stop adding features, make sure AC1–AC13 pass or are honestly marked failing, and log what you cut.
+## Time limit: 120 minutes, hard
+Stop feature work at minute 90 and use the rest to verify, push and write up. At 120, stop and report the real status. If tool 1 isn't passing by minute 70, skip tool 2 and say so. Cut first: the 50,000-row seed (keep the small paging test), then `make access-review`. Never cut a permission check, the cap, the threshold, audit rules or the cross-tool rule without logging it.
