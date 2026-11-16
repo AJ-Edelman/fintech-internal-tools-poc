@@ -387,3 +387,28 @@ final reports below.
 | Fresh check | 8502c7f5a8824c1d9a59e8e77cfcb3f4 | No build context; make targets; try to break AC15 to AC24 at `cc84ed4` |
 | README | aebb860af75840cba6f19224f63ae30d | Branch `devin/s2-readme`, README.md only |
 - README worker own time 02:38:40 to 02:40:09; branch `devin/s2-readme` `58f2e5a` (README.md only) merged at 02:40, no conflicts. It noted: the seed has no US pending KYC customers, so the walkthrough adds an EU reviewer first; AC16 failure injection exists only in tests.
+- Fresh check own time 02:38:34 to 02:42:22, at `cc84ed4`: no failed criterion in AC15 to AC24; spot checks of AC1, AC2, AC3, AC5, AC6, AC7, AC8, AC12 passed. Its make output (result lines; full text in its session), every command exit 0:
+
+```
+make setup        -> data/app.db: applied [1, 2, 3, 4, 5, 6]; now at [1, 2, 3, 4, 5, 6]
+make seed         -> seeded demo data into data/app.db
+make verify       -> 300 passed, 4 skipped; AC3 PASS
+make seed-scale   -> seeded 50000 refunds into data/scale.db: {'approved': 30000, 'pending_approval': 12500, 'rejected': 7500}
+make test-scale   -> 4 passed, 1 warning in 3.32s
+make access-review -> 8 role assignment(s) in data/app.db (with REGION column)
+```
+
+- Logged, not fixed (not failed criteria): the KYC queue JSON API ignores sort/dir (the page sorts correctly; AC18 is tested on the page); the AC24 test's required-path list does not name `/limits`, `/limits/queue`, `/admin/connectors` (its route walk still covers them); the demo seed has no US customer awaiting KYC, so `kyc1`'s queue is empty; a retry resets `attempts` to 0 (earlier attempts stay in `audit_event`); admin cannot read customers (by design: admin is not a superuser).
+
+## End of BUILD_SPEC_2
+
+| Item | Start | First passing |
+|---|---|---|
+| 1 connections (worker A) | 02:22 | 02:27 (merged 02:28) |
+| 2 shared lists (worker B) | 02:22 | 02:29 (merged 02:30, fixed 02:32) |
+| 3 region scope (worker C) | 02:22 | 02:25 (merged 02:26) |
+| 4 tool 3 | 02:33 | 02:35 |
+
+- Wall clock: 02:16 to 02:43, 27 of 55 minutes. Nothing was cut.
+- Worker time: A 5 min, B 7 min, C 3 min, README 2 min, fresh check 4 min, feedback tests 11 min; my own work was all of the wall-clock time.
+- Nothing here was verified by a human.
