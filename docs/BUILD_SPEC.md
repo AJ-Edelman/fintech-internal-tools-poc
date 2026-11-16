@@ -57,7 +57,7 @@ Python 3.11, FastAPI, SQLAlchemy, SQLite, Jinja2 pages (tables and forms only), 
 - Tool 1 tests must still pass. You may update their setup data; you may not weaken what they assert.
 
 ## Seed data
-- `make seed`: about 20 customers in mixed KYC states, about 40 charges (some over $1,000 on approved customers), and users `agent1`, `agent2` (refund_agent), `approver1` (refund_approver), `kyc1` (kyc_reviewer), `admin1` (admin), all with password `demo`.
+- `make seed`: about 20 customers (in mixed KYC states once tool 2 adds the column), about 40 charges (some over $1,000 on approved customers), and users `agent1`, `agent2` (refund_agent), `approver1` (refund_approver), `kyc1` (kyc_reviewer), `admin1` (admin), all with password `demo`.
 - `make seed-scale`: 50,000 refunds with a fixed, known count per status.
 
 ## Acceptance criteria
@@ -69,7 +69,7 @@ Each is an automated test through HTTP unless marked. **[T1]** must pass at `too
 | AC2 | [T1] An agent requests $750 → `pending_approval` → an approver approves → `approved`, with an audit event per step. $500.00 on a fresh charge is approved by `system`; $500.01 is pending |
 | AC3 | [T1] (process) A refund and its audit events survive stopping and restarting the server |
 | AC4 | [T1] A test user holding both refund roles cannot approve their own request: 403, state unchanged, no approval audit event |
-| AC5 | [T1] An agent calling the approve endpoint gets 403. A refund agent calling the KYC decision endpoint gets 403 |
+| AC5 | [T1] An agent calling the approve endpoint gets 403. At `tool2-done`, a refund agent calling the KYC decision endpoint also gets 403 |
 | AC6 | [T1] Over the cap → 422 through the API and the form, including when two requests together exceed the charge. Rejecting a request frees its amount. (SQL) A direct insert over the cap fails |
 | AC7 | An agent sees masked values. A KYC reviewer sees full values on customer detail only, and that view is audited. No audit row contains a raw SSN or bank account |
 | AC8 | [T1] (SQL) UPDATE and DELETE on `audit_event` each fail and leave the row unchanged |
