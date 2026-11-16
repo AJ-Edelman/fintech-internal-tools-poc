@@ -138,3 +138,14 @@ def test_change_and_audit_event_commit_together_or_not_at_all(app, login, sql, m
     assert sql.execute("SELECT status FROM refund WHERE id = ?", (refund["id"],)).fetchone()[0] == "pending_approval"
     assert count(sql, charge_id=2) == 0
     assert len(audit_rows(sql, "refund", refund["id"])) == 1
+
+
+def test_ac1_replacing_a_charge_cannot_shrink_it_below_its_refunds(login, sql):
+    assert request_refund(login("agent1"), charge_id=1, amount_cents=75000).status_code == 201
+    for foreign_keys in ("ON", "OFF"):
+        sql.execute(f"PRAGMA foreign_keys = {foreign_keys}")
+        with pytest.raises(sqlite3.DatabaseError, match="refund cap exceeded"):
+            sql.execute("INSERT OR REPLACE INTO charge (id, customer_id, amount_cents, created_at) "
+                        "VALUES (1, 1, 74999, '2026-01-01T00:00:00Z')")
+    assert sql.execute("SELECT amount_cents FROM charge WHERE id = 1").fetchone()[0] == 200000
+
