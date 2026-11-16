@@ -128,17 +128,18 @@ def test_grant_and_remove_roles_takes_effect_and_is_audited(login, sql):
     admin, agent = login("admin1"), login("agent1")
     target = uid(sql, "agent1")
     assert agent.get("/api/kyc/queue").status_code == 403
-    response = admin.put(f"/api/users/{target}/roles", json={"role_names": ["refund_agent", "kyc_reviewer"]})
+    response = admin.put(f"/api/users/{target}/roles", json={"role_names": ["refund_agent", "kyc_reviewer"], "reason": "Access review"})
     assert response.status_code == 200, response.text
     assert response.json()["roles"] == ["kyc_reviewer", "refund_agent"]
     assert agent.get("/api/kyc/queue").status_code == 200  # same session, roles read per request
-    response = admin.put(f"/api/users/{target}/roles", json={"role_names": []})
+    response = admin.put(f"/api/users/{target}/roles", json={"role_names": [], "reason": "Access review"})
     assert response.status_code == 200 and response.json()["roles"] == []
     assert agent.get("/api/kyc/queue").status_code == 403
     assert agent.get("/api/refunds").status_code == 403
     assert roles_of(sql, "agent1") == []
     events = audit_rows(sql, "user", target)
     assert [e["action"] for e in events] == ["user.roles_change", "user.roles_change"]
+    assert all(e["reason"] == "Access review" for e in events)
     assert all(e["actor"] == "admin1" and e["created_at"] for e in events)
     assert '"roles": ["refund_agent"]' in events[0]["before"]
     assert '"roles": ["kyc_reviewer", "refund_agent"]' in events[0]["after"]
@@ -148,9 +149,10 @@ def test_grant_and_remove_roles_takes_effect_and_is_audited(login, sql):
 def test_roles_form_changes_roles(login, sql):
     admin = login("admin1")
     target = uid(sql, "agent2")
-    response = admin.post(f"/admin/users/{target}/roles", data={"role_names": "refund_approver"})
+    response = admin.post(f"/admin/users/{target}/roles", data={"role_names": "refund_approver", "reason": "Access review"})
     assert response.status_code == 303 and response.headers["location"] == "/admin/access-review?saved=agent2"
     assert roles_of(sql, "agent2") == ["refund_approver"]
+    assert audit_rows(sql, "user", target)[-1]["reason"] == "Access review"
 
 
 def test_roles_validation_and_missing_user(login, sql):
@@ -195,7 +197,8 @@ def test_second_admin_can_remove_first_but_an_active_admin_always_remains(login,
     assert add(admin1, "admin2", PASSWORD, ["admin"]).status_code == 201
     admin2 = login("admin2", PASSWORD)
     first = uid(sql, "admin1")
-    assert admin2.put(f"/api/users/{first}/roles", json={"role_names": []}).status_code == 200
+    assert admin2.put(f"/api/users/{first}/roles", json={"role_names": [], "reason": "Access review"}).status_code == 200
+    assert audit_rows(sql, "user", first)[-1]["reason"] == "Access review"
     assert admin1.get("/api/users").status_code == 403
     # admin2 is now the last admin and cannot drop or deactivate themself.
     second = uid(sql, "admin2")
@@ -239,7 +242,7 @@ def test_deactivate_ends_sessions_blocks_login_and_reactivate_restores(login, an
     admin, agent, agent_again = login("admin1"), login("agent1"), login("agent1")
     target = uid(sql, "agent1")
     assert sql.execute("SELECT COUNT(*) FROM user_session WHERE user_id = ?", (target,)).fetchone()[0] == 2
-    response = admin.put(f"/api/users/{target}/active", json={"active": False})
+    response = admin.put(f"/api/users/{target}/active", json={"active": False, "reason": "Access review"})
     assert response.status_code == 200 and response.json()["active"] is False
     assert sql.execute("SELECT COUNT(*) FROM user_session WHERE user_id = ?", (target,)).fetchone()[0] == 0
     assert agent.get("/api/refunds").status_code == 401
@@ -249,7 +252,7 @@ def test_deactivate_ends_sessions_blocks_login_and_reactivate_restores(login, an
     assert anon.post("/api/login", json={"username": "agent1", "password": "demo"}).status_code == 401
     assert anon.post("/login", data={"username": "agent1", "password": "demo"}).status_code == 401
 
-    response = admin.put(f"/api/users/{target}/active", json={"active": True})
+    response = admin.put(f"/api/users/{target}/active", json={"active": True, "reason": "Access review"})
     assert response.status_code == 200 and response.json()["active"] is True
     assert agent.get("/api/refunds").status_code == 401  # old sessions stay dead
     assert login("agent1").get("/api/refunds").status_code == 200
@@ -257,6 +260,7 @@ def test_deactivate_ends_sessions_blocks_login_and_reactivate_restores(login, an
 
     events = audit_rows(sql, "user", target)
     assert [e["action"] for e in events] == ["user.deactivate", "user.reactivate"]
+    assert all(e["reason"] == "Access review" for e in events)
     assert all(e["actor"] == "admin1" and e["created_at"] for e in events)
     assert '"active": true' in events[0]["before"] and '"active": false' in events[0]["after"]
     assert '"active": false' in events[1]["before"] and '"active": true' in events[1]["after"]
@@ -265,20 +269,22 @@ def test_deactivate_ends_sessions_blocks_login_and_reactivate_restores(login, an
 def test_deactivate_through_the_form(login, sql):
     admin, approver = login("admin1"), login("approver1")
     target = uid(sql, "approver1")
-    response = admin.post(f"/admin/users/{target}/active", data={"active": "0"})
+    response = admin.post(f"/admin/users/{target}/active", data={"active": "0", "reason": "Access review"})
     assert response.status_code == 303
     assert approver.get("/api/refunds").status_code == 401
     html = admin.get("/admin/access-review?status=inactive").text
     assert "approver1" in html and "Reactivate" in html
-    assert admin.post(f"/admin/users/{target}/active", data={"active": "1"}).status_code == 303
+    assert admin.post(f"/admin/users/{target}/active", data={"active": "1", "reason": "Access review"}).status_code == 303
     assert sql.execute("SELECT active FROM app_user WHERE id = ?", (target,)).fetchone()[0] == 1
+    assert all(e["reason"] == "Access review" for e in audit_rows(sql, "user", target))
 
 
 def test_deactivated_admin_loses_access_immediately(login, sql):
     admin1 = login("admin1")
     add(admin1, "admin2", PASSWORD, ["admin"])
     admin2 = login("admin2", PASSWORD)
-    assert admin2.put(f"/api/users/{uid(sql, 'admin1')}/active", json={"active": False}).status_code == 200
+    assert admin2.put(f"/api/users/{uid(sql, 'admin1')}/active", json={"active": False, "reason": "Access review"}).status_code == 200
+    assert audit_rows(sql, "user", uid(sql, "admin1"))[-1]["reason"] == "Access review"
     assert admin1.get("/api/users").status_code == 401
     assert admin1.put(f"/api/users/{uid(sql, 'admin2')}/active", json={"active": False}).status_code == 401
     assert sql.execute("SELECT active FROM app_user WHERE username = 'admin2'").fetchone()[0] == 1
@@ -286,7 +292,8 @@ def test_deactivated_admin_loses_access_immediately(login, sql):
 
 def test_inactive_user_is_dropped_from_the_role_overview_but_listed(login, sql):
     admin = login("admin1")
-    admin.put(f"/api/users/{uid(sql, 'kyc1')}/active", json={"active": False})
+    admin.put(f"/api/users/{uid(sql, 'kyc1')}/active", json={"active": False, "reason": "Access review"})
+    assert audit_rows(sql, "user", uid(sql, "kyc1"))[-1]["reason"] == "Access review"
     listed = admin.get("/api/users?status=inactive").json()
     assert [u["username"] for u in listed["items"]] == ["kyc1"] and listed["total"] == 1
     html = admin.get("/admin/access-review").text
@@ -322,7 +329,8 @@ def test_nobody_approves_their_own_refund_even_with_both_refund_roles(login, sql
 def test_granting_the_approver_role_later_still_blocks_own_request(login, sql):
     admin, agent = login("admin1"), login("agent1")
     refund_id = request_refund(agent, amount_cents=75000).json()["id"]
-    admin.put(f"/api/users/{uid(sql, 'agent1')}/roles", json={"role_names": ["refund_agent", "refund_approver"]})
+    admin.put(f"/api/users/{uid(sql, 'agent1')}/roles", json={"role_names": ["refund_agent", "refund_approver"], "reason": "Access review"})
+    assert audit_rows(sql, "user", uid(sql, "agent1"))[-1]["reason"] == "Access review"
     assert agent.post(f"/api/refunds/{refund_id}/approve", json={"reason": "ok"}).status_code == 403
     assert sql.execute("SELECT status FROM refund WHERE id = ?", (refund_id,)).fetchone()[0] == "pending_approval"
 

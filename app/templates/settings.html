@@ -13,11 +13,11 @@
     {% if s.kind == "cents" %}
     <form method="post" action="/admin/settings"><span class="grow"><input name="amount" inputmode="decimal" value="{{ '%.2f' % (item.value / 100) }}" aria-label="{{ s.label }} in dollars" style="width:100%"></span><button class="btn primary" type="submit">Save</button></form>
     {% elif s.kind == "bool" %}
-    <form method="post" action="/admin/settings/{{ s.key }}"><label class="switch"><input type="checkbox" name="value" {% if item.value %}checked{% endif %} onchange="this.form.submit()"> {{ "On" if item.value else "Off" }}</label><noscript><button class="btn" type="submit">Save</button></noscript></form>
+    <form method="post" action="/admin/settings/{{ s.key }}"><label class="switch"><input type="checkbox" name="value" {% if item.value %}checked{% endif %}> {{ "On" if item.value else "Off" }}</label><input name="reason" required aria-label="Reason for {{ s.label }}" placeholder="Reason for change"><button class="btn" type="submit">Save</button></form>
     {% elif s.kind == "list" %}
     <form method="post" action="/admin/settings/{{ s.key }}"><textarea name="value" aria-label="{{ s.label }}, one per line">{{ item.value | join("\n") }}</textarea><span class="small muted grow">One per line. "Other" is always added at the end.</span><button class="btn primary" type="submit">Save</button></form>
     {% else %}
-    <form method="post" action="/admin/settings/{{ s.key }}"><span class="grow"><input name="value" inputmode="numeric" value="{{ item.value if item.value is not none else '' }}" placeholder="{{ 'No limit' if s.kind == 'optional_int' else '' }}" aria-label="{{ s.label }}" style="width:100%"></span><button class="btn primary" type="submit">Save</button></form>
+    <form method="post" action="/admin/settings/{{ s.key }}"><span class="grow"><input name="value" inputmode="numeric" value="{{ item.value if item.value is not none else '' }}" placeholder="{{ 'No limit' if s.kind == 'optional_int' else '' }}" aria-label="{{ s.label }}" style="width:100%"></span>{% if s.key == 'max_refund_age_days' %}<input name="reason" required aria-label="Reason for {{ s.label }}" placeholder="Reason for change">{% endif %}<button class="btn primary" type="submit">Save</button></form>
     {% endif %}
   </div>
 {% endfor %}

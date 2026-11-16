@@ -103,10 +103,13 @@ def set_value(conn, actor, key: str, value, reason: str | None = None):
         raise AppError(404, f"setting {key} not found")
     value = _validate(spec, value)
     old = get(conn, key)
+    reason = reason.strip() if isinstance(reason, str) else ""
+    if key in (REFUND_REQUIRES_KYC, MAX_REFUND_AGE) and not reason:
+        raise AppError(422, "a reason is required")
     conn.execute(text("UPDATE setting SET value = :v WHERE key = :k"), {"v": json.dumps(value), "k": key})
     write_audit(conn, actor=actor.username, action="setting.change", entity="setting", entity_id=key,
                 before={"value": old}, after={"value": value},
-                reason=reason.strip() if isinstance(reason, str) and reason.strip() else None)
+                reason=redact_text(reason) if reason else None)
     return value
 
 

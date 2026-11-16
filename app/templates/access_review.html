@@ -28,8 +28,10 @@
           <form method="post" action="/admin/users/{{ u.id }}/roles" class="decide">
             <span class="checks small">{% for r in all_roles %}<label><input type="checkbox" name="role_names" value="{{ r }}" {% if r in u.roles %}checked{% endif %}> {{ role_labels[r] }}</label>{% endfor %}</span>
             <select name="region" aria-label="Region for {{ u.username }}"><option value="">Keep region</option>{% for g in region_choices %}<option value="{{ g }}">{{ g }}</option>{% endfor %}</select>
+            <input name="reason" required aria-label="Reason for access change for {{ u.username }}" placeholder="Reason for change">
             <button class="btn sm" type="submit">Save roles</button></form>
           <form method="post" action="/admin/users/{{ u.id }}/active" class="inline-form"><input type="hidden" name="active" value="{{ '0' if u.active else '1' }}">
+            <input name="reason" required aria-label="Reason for status change for {{ u.username }}" placeholder="Reason for change">
             <button class="btn sm {{ 'bad' if u.active }}" type="submit">{{ "Deactivate" if u.active else "Reactivate" }}</button></form>
         </div>{% endif %}</td>{% endif %}</tr>
     {% else %}<tr><td colspan="6" class="empty">No users match.</td></tr>{% endfor %}
