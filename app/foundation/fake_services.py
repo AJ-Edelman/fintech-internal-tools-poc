@@ -1,4 +1,6 @@
 """In-process fake receivers for the demo and tests. Owner after stage 0: worker A."""
+from copy import deepcopy
+from threading import Lock
 
 
 class FakeService:
@@ -7,18 +9,21 @@ class FakeService:
         self.fail = False  # when True, every call raises
         self.calls = 0  # every call, including failed and duplicate ones
         self.received: dict[str, dict] = {}  # idempotency key -> payload, applied once
+        self._lock = Lock()
 
     def receive(self, idempotency_key: str, payload: dict) -> str:
-        self.calls += 1
-        if self.fail:
-            raise ConnectionError(f"{self.name} is unavailable")
-        if idempotency_key in self.received:
-            return "duplicate"
-        self.received[idempotency_key] = payload
-        return "accepted"
+        with self._lock:
+            self.calls += 1
+            if self.fail:
+                raise ConnectionError(f"{self.name} is unavailable")
+            if idempotency_key in self.received:
+                return "duplicate"
+            self.received[idempotency_key] = deepcopy(payload)
+            return "accepted"
 
     def reset(self) -> None:
-        self.fail, self.calls, self.received = False, 0, {}
+        with self._lock:
+            self.fail, self.calls, self.received = False, 0, {}
 
 
 FAKES = {"payments": FakeService("payments"), "ledger": FakeService("ledger")}
