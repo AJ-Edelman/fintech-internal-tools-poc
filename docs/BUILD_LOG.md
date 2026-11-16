@@ -416,3 +416,41 @@ make access-review -> 8 role assignment(s) in data/app.db (with REGION column)
 # BUILD_SPEC_3: review fixes
 
 - Start: 03:06:10 UTC (hard stop 20 minutes later; feature stop at minute 15).
+
+## Product-feedback block, 01:30 to 02:16 UTC (fix 5)
+
+Times come from chat timestamps and commit times (UTC).
+
+- **01:30 to 02:02: no coding.** At 01:39 the user asked about the Devin Review; I checked it (0 findings). At 01:40 I started the prototype for the user to try (`make seed`, `make run`, a preview link); the exact minutes spent are not recorded. From 01:51 to 02:01 the user sent 13 feedback items, one message at a time, with "do not incorporate until I say fix all". I replied to each, but changed no code.
+- **What was asked:** (1) no reason for the admin's auto-approve limit change, (2) dollars instead of cents, (3) a modern UI based on a real fintech dashboard, (4) a refund reason dropdown with "Other" needing text, (5) the same for approvers, (6) a sortable, filterable charge picker instead of a long dropdown, (7) the label "Refund amount requested (Max $XYZ)", (8) quick approve and reject with a reason in the approval queue, (9) every list filterable, sortable and searchable, (10) the same quick actions in the KYC queue, (11) readable admin tables and a clearer user/role page, (12) admins can add users and grant access, (13) session timeout and logout, editable reason lists, a KYC-required switch and a maximum refund age.
+- **02:02 to 02:16: coding.** It started at "fix all" (02:02). The main commit was `4b894d8` at 02:14:38 and the polish commit `828d8e4` at 02:16:49. BUILD_SPEC_2 started at 02:16 (see above).
+- **What changed:** money in dollars on every screen, while storage and the API stay in cents. Reason dropdowns are fed by editable lists. The charge picker is a server-paged table showing the remaining refundable amount. Both queues have row-level actions. The UI is restyled after the Stripe Dashboard. User management was added (add, roles, deactivate, guards for self-change and the last admin). The new settings are session timeout, logout, reason lists, `refund_requires_kyc` and `max_refund_age_days`, in migration `006_admin_settings.sql`, which was numbered 003 until BUILD_SPEC_2 reserved 003 to 005.
+- **Tests changed, and why:**
+  - `tests/test_refund_flow.py::test_ac2_limit_change_needs_a_reason_and_form_enforces_the_same_rules` was renamed `test_ac2_limit_change_needs_no_reason_and_form_enforces_the_same_rules`. The product owner removed the reason requirement for this one setting (item 1), so the blank-reason request now expects 200 instead of 422. The test still checks the range, permission and audit, and adds checks for the dollar form. This is the only expectation that was relaxed, and it was relaxed by product decision. BUILD_SPEC_3 records that decision.
+  - `tests/conftest.py`, `tests/test_cap_and_audit_sql.py` and `tests/test_kyc.py`: fixed charge dates of `2026-01-01` became "now", so the new 90-day maximum refund age does not block refunds in those tests. Each assertion is unchanged.
+  - `tests/test_cap_and_audit_sql.py`: `migrate(path)` became `migrate(path, target=2)`, because the 002 migration test must stop at 002 now that later migrations exist.
+  - Later, during BUILD_SPEC_2: in `tests/test_kyc.py` the AC7 audit count now counts the 9 business events separately from the 1 payout event. In `tests/test_feedback_lists.py`, 2 assertions changed: the charge-picker row count and an audit total that grew from 9 to 11 because of payout events. Each is logged in the BUILD_SPEC_2 stage 2 entry.
+- **Parallel work in this block:** none before 02:15. The feedback-test session ran from 02:15 to 02:26, overlapping BUILD_SPEC_2, and the 4 review fixes on the feedback code were made at 02:17 and 02:18, inside BUILD_SPEC_2.
+
+## Work blocks
+
+| Block | Start | End | Minutes | Active work |
+|---|---|---|---|---|
+| BUILD_SPEC first build | 00:49 | 01:30 | 41 | yes |
+| Review check, prototype start, feedback Q&A | 01:30 | 02:02 | 32 | no coding (prototype setup minutes not recorded) |
+| Product-feedback coding | 02:02 | 02:16 | 14 | yes |
+| BUILD_SPEC_2 | 02:16 | 02:43 | 27 | yes (workers in parallel inside it) |
+| Q&A about time and status | 02:43 | 03:06 | 23 | no coding |
+
+## BUILD_SPEC_3 stages
+
+- Stage 0 (me alone): 03:06:10 to 03:06:40. Commit `d3ecc8e` has the spec file, a placeholder `migrations/007_data_layer_rules.sql` and the start time.
+- Stage 1 (three workers, dispatched 03:06:45). Each is on its own branch from `d3ecc8e`, with its own file list:
+
+| Worker | Session | Branch | Owns |
+|---|---|---|---|
+| A, reasons | 7d9fd014c9d340698f38063cc3530c1b | `devin/s3-reasons` | settings.py, settings routes in web.py, admin_routes.py, users.py, settings.html, access_review.html, tests/test_reasons.py |
+| B, data rules | 6914f34d8c794b57bafdb4e2b6d7073b | `devin/s3-data-rules` | migrations/007, tests/test_data_layer_rules.py |
+| C, seed and queue | d0f0b71f98954843b45db79c3fd927ae | `devin/s3-seed-kyc` | seed.py, kyc/routes.py, kyc/workflow.py, tests/test_seed_and_kyc_queue.py, README walkthrough |
+
+- While they ran, I wrote fix 5 (from 03:06:50 to 03:07:20).
