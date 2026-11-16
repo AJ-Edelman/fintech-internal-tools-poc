@@ -55,3 +55,11 @@ def test_ac29_kyc_queue_api_sorts_by_column_and_direction(db_path, login):
     assert queue(kyc2, sort="name", dir="asc") == [14, 16, 17, 15, 13]
     assert queue(kyc2, sort="name", dir="desc") == [13, 15, 17, 16, 14]
     assert queue(kyc2) == [13, 14, 15, 16, 17]
+
+
+def test_kyc_queue_api_sorts_by_waiting_time_like_the_page(login):
+    kyc2 = login("kyc2")
+    for direction in ("asc", "desc"):
+        response = kyc2.get("/api/kyc/queue", params={"sort": "waiting", "dir": direction})
+        assert response.status_code == 200
+        assert sorted(i["id"] for i in response.json()["items"]) == [13, 14, 15, 16, 17]

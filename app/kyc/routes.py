@@ -26,7 +26,7 @@ def api_queue(request: Request, q: str | None = None, sort: str | None = None, d
     with tx(request) as conn:
         # Shared list with region scope: out-of-region customers are neither listed nor counted.
         result = customers.search_customers(conn, q, "pending", sort or "id", dir or "asc", page, page_size,
-                                             user=user)
+                                             user=user, spec=customers.KYC_QUEUE)
     return {"items": result["items"], "total": result["total"], "page": result["page"],
             "page_size": result["page_size"]}
 
