@@ -378,3 +378,11 @@ final reports below.
  tests/test_limits.py            | 110 ++++++++++++++++++++++++
  9 files changed, 508 insertions(+), 1 deletion(-)
 ```
+- After the tag, three Devin Review findings fixed (02:36 to 02:38): KYC queue API paging, filtered audit API page size 500, KYC waiting time ignoring PII views. `make test`: `300 passed, 4 skipped`.
+
+## Stage 4: two parallel workers (02:38 start)
+
+| Worker | Session | Task |
+|---|---|---|
+| Fresh check | 8502c7f5a8824c1d9a59e8e77cfcb3f4 | No build context; make targets; try to break AC15 to AC24 at `cc84ed4` |
+| README | aebb860af75840cba6f19224f63ae30d | Branch `devin/s2-readme`, README.md only |
