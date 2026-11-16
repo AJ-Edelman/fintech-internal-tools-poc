@@ -1,7 +1,24 @@
 # fintech-internal-tools-poc
 
-A prototype of three internal tools built on one shared foundation, to show the pattern a fintech
-would use to build many of them:
+A build-versus-buy study for a fintech engineering team that pays about $250k a year for an internal-tool
+platform (Microsoft Power Apps) and asked whether it could build its internal tools with Devin instead.
+The repository holds a working prototype, built by Devin from written specs, and the evaluation that
+rests on it.
+
+| Read this | For |
+|---|---|
+| [`docs/EVALUATION.md`](docs/EVALUATION.md) | The evaluation and recommendation: three paths, cost, maintenance, security, opportunity cost, next steps |
+| [`docs/KEY_DECISIONS.md`](docs/KEY_DECISIONS.md) | One page on what was built, why this scope, and the tradeoffs |
+| [`docs/research/RESEARCH.md`](docs/research/RESEARCH.md) | What Power Apps provides, with sources |
+| [`docs/BUILD_SPEC.md`](docs/BUILD_SPEC.md), [`BUILD_SPEC_2`](docs/BUILD_SPEC_2.md), [`BUILD_SPEC_3`](docs/BUILD_SPEC_3.md) | The specs Devin built from, with numbered acceptance criteria (AC1 to AC29) |
+| [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) | What Devin built and when, what independent checks found, and what was fixed |
+| [`docs/PROMPT.md`](docs/PROMPT.md) | The original brief |
+
+## What the prototype is
+
+Three internal tools built on one shared foundation, to show the pattern a fintech would use to build
+many of them. It is evidence that the build is feasible, not that it is cheaper; see
+[Limitations](#limitations) for what it does not show.
 
 - **Tool 1, refunds:** agents request refunds; small ones are approved automatically, larger ones wait
   for a second person (maker-checker). A database rule keeps pending plus approved refunds within the
@@ -34,8 +51,10 @@ make setup     # create .venv, install requirements, apply migrations to data/ap
 make seed      # 20 customers, 40 charges, 9 demo users
 make verify    # tests, then the stop-and-restart check
 make run       # http://127.0.0.1:8000/login
-make demo      # one-click sign-in as each demo user; never enable it outside a demo
 ```
+
+`make demo` starts the same server with one-click sign-in buttons for each demo user. Use it in place
+of `make run` (both use port 8000), and never outside a demo.
 
 Other targets: `make test`, `make seed-scale` (50,000 refunds in `data/scale.db`), `make test-scale`,
 `make access-review` (prints each user's roles and permissions). Tests use temporary databases, never
