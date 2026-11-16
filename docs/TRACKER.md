@@ -43,8 +43,8 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 - [ ] Step 3b: Prototype + evidence log + verification scripts + README
 - [ ] Step 4: Evaluate (7 lenses, transition vs steady-state, no double counting)
 - [ ] Step 4b: Recommendation (path, conditions, what changes it, next steps + Devin's role)
-- [ ] Step 5: Loom content decisions [COLLAB] → timestamped script ≤5:00
-- [ ] Step 6: Key Decisions one-pager [COLLAB]
+- [ ] Step 5: Key Decisions one-pager [COLLAB]
+- [ ] Step 6: Loom content decisions [COLLAB] → timestamped script ≤5:00
 - [ ] Step 7: Record Loom, final audit
 
 ## Deliverables
@@ -59,7 +59,17 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 - [ ] Evidence log: Devin built / user directed / user verified, with links
 - [ ] Verified by running it: clean start works, main workflow works, changes persist across restart, a denied action fails at the API, claimed controls enforced on the backend (synthetic data only)
 
-### 2. Loom Video (5 min max, for VP Eng)
+### 2. Key Decisions One-Pager (1 page max, for Cognition)
+
+- [ ] What was built
+- [ ] Why this scope was chosen
+- [ ] How the system is structured (architectural decisions)
+- [ ] Alternatives and tradeoffs that mattered
+- [ ] What the design does not establish
+- [ ] Design rationale, not a findings summary or process diary
+- [ ] Fits on one page
+
+### 3. Loom Video (5 min max, for VP Eng)
 
 - [ ] Most important aspects of Microsoft Power Apps
 - [ ] How Devin helps if they build, illustrated with the prototype
@@ -69,16 +79,6 @@ Mark items `[x]` as they are completed and add a short note/link as evidence.
 - [ ] Build vs Buy recommendation and reasoning
 - [ ] Next steps if they proceed (either direction) and where Devin fits, if anywhere
 - [ ] Runtime checked at 5:00 or under
-
-### 3. Key Decisions One-Pager (1 page max, for Cognition)
-
-- [ ] What was built
-- [ ] Why this scope was chosen
-- [ ] How the system is structured (architectural decisions)
-- [ ] Alternatives and tradeoffs that mattered
-- [ ] What the design does not establish
-- [ ] Design rationale, not a findings summary or process diary
-- [ ] Fits on one page
 
 ## Final Audit
 

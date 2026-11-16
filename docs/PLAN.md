@@ -139,7 +139,13 @@ Cost rules:
 
 ---
 
-## Step 5: Loom: decide content, then script `[COLLAB]`
+## Step 5: Key Decisions one-pager `[COLLAB]` (for Cognition, 1 page)
+
+- It is a design rationale, not a findings summary or a process diary.
+- Candidate sections: what was built; why this scope; how the system is structured; which alternatives and tradeoffs mattered; what the design does not establish.
+- Structure decided together; the final wording is yours.
+
+## Step 6: Loom: decide content, then script `[COLLAB]`
 
 1. **Content decisions first** `[COLLAB]`: for each of the 5 required topics, agree on the 1-3 points we make, the evidence behind them, and what we cut. Recorded in `docs/LOOM_OUTLINE.md`.
    1. The most important aspects of Power Apps.
@@ -148,15 +154,9 @@ Cost rules:
    4. The build-vs-buy recommendation and why.
    5. What's next in either direction, and where Devin fits.
 2. **Timestamped script**, 5:00 max (~650-700 spoken words, including the demo segment).
-3. Dry-run timing check. Recording happens after the one-pager.
-
-## Step 6: Key Decisions one-pager `[COLLAB]` (for Cognition, 1 page)
-
-- It is a design rationale, not a findings summary or a process diary.
-- Candidate sections: what was built; why this scope; how the system is structured; which alternatives and tradeoffs mattered; what the design does not establish.
-- Structure decided together; the final wording is yours.
+3. Dry-run timing check.
 
 ## Step 7: Record the Loom, final audit
 
-- Record after the one-pager.
+- Record once the one-pager and the script are final.
 - Final line-by-line audit against `PROMPT.md` via `TRACKER.md`.
