@@ -20,11 +20,13 @@ class KycDecisionBody(BaseModel):
 
 
 @router.get("/api/kyc/queue")
-def api_queue(request: Request, q: str | None = None, page: int = Query(1, ge=1),
+def api_queue(request: Request, q: str | None = None, sort: str | None = None, dir: str | None = None,
+              page: int = Query(1, ge=1),
               page_size: int = Query(200, ge=1, le=200), user: User = Depends(require("kyc:review"))):
     with tx(request) as conn:
         # Shared list with region scope: out-of-region customers are neither listed nor counted.
-        result = customers.search_customers(conn, q, "pending", "id", "asc", page, page_size, user=user)
+        result = customers.search_customers(conn, q, "pending", sort or "id", dir or "asc", page, page_size,
+                                             user=user)
     return {"items": result["items"], "total": result["total"], "page": result["page"],
             "page_size": result["page_size"]}
 

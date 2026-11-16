@@ -18,12 +18,14 @@ DEMO_USERS = [
     ("approver1", ["refund_approver"], "US"),
     ("approver2", ["refund_approver"], "EU"),
     ("kyc1", ["kyc_reviewer"], "US"),
+    ("kyc2", ["kyc_reviewer"], "EU"),
     ("limits1", ["limits_agent"], "US"),
     ("limits2", ["limits_approver"], "US"),
     ("admin1", ["admin"], "ALL"),
 ]
 # Demo customers 11-20 are EU (11 and 12 are KYC-approved and hold charges); 1-10 are US.
 EU_DEMO_CUSTOMERS = range(11, 21)
+KYC_PENDING_DEMO_CUSTOMERS = (6, 7, 8, 13, 14, 15, 16, 17)
 FIRST = ["Ada", "Ben", "Cleo", "Dev", "Eve", "Finn", "Gia", "Hal", "Ivy", "Jon",
          "Kai", "Lena", "Milo", "Nora", "Omar", "Pia", "Quinn", "Rae", "Sam", "Tess"]
 LAST = ["Stone", "Rivers", "Field", "Marsh", "Hill", "Lake", "Wood", "Vale", "Frost", "Reed"]
@@ -84,8 +86,9 @@ def seed_customers(conn, count: int = 20) -> list[int]:
         params = {"n": name, "e": f"customer{n}@example.test", "s": synthetic_ssn(n),
                   "b": synthetic_bank_account(n)}
         if kyc:
-            # 1-12 approved, 13-17 pending, 18-20 rejected
-            params["k"] = "approved" if n <= 12 else ("pending" if n <= 17 else "rejected")
+            # 6-8 (US) and 13-17 (EU) pending, 18-20 rejected, the rest approved
+            params["k"] = ("pending" if n in KYC_PENDING_DEMO_CUSTOMERS
+                           else "rejected" if n >= 18 else "approved")
             sql = ("INSERT INTO customer (name, email, ssn, bank_account, kyc_status) "
                    "VALUES (:n, :e, :s, :b, :k)")
         else:
